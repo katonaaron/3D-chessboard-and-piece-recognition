@@ -827,19 +827,28 @@ static void CannyThreshold2(int, void*)
 
 
 
-	Point2f topLeft, bottomLeft, topRight, bottomRight;
-	getFourCorners(reprojectedCorners, topLeft, bottomLeft, topRight, bottomRight);
+	//Point2f topLeft, bottomLeft, topRight, bottomRight;
+	//getFourCorners(reprojectedCorners, topLeft, bottomLeft, topRight, bottomRight);
 
-	float dx = (topRight.x - topLeft.x) / 8;
-	float dy = (bottomLeft.y - topLeft.y) / 8;
+	//float dx = (topRight.x - topLeft.x) / 8;
+	//float dy = (bottomLeft.y - topLeft.y) / 8;
 
+
+	//std::vector<Point2f> allReprCorners;
+	//for (int i = 0; i <= 8; i++) {
+	//	for (int j = 0; j <= 8; j++) {
+	//		allReprCorners.push_back(topLeft + Point2f(j * dx, i * dy));
+	//	}
+	//}
 
 	std::vector<Point2f> allReprCorners;
-	for (int i = 0; i <= 8; i++) {
-		for (int j = 0; j <= 8; j++) {
-			allReprCorners.push_back(topLeft + Point2f(j * dx, i * dy));
-		}
+	std::vector<Point2f> intersectionsf;
+	for (const auto& inter : intersections) {
+		intersectionsf.push_back(inter);
 	}
+
+	reprojectPoints(intersectionsf, allReprCorners, corners, imageSize);
+
 
 	Mat reprojectedWithAllCorners = reprojected.clone();
 	for (const auto& corner : allReprCorners) {
