@@ -493,6 +493,11 @@ std::vector<Point2i> findIntersections(const std::vector<Vec4i>& lines, Size ima
 			Point2i p2 = cv::Point(line2[2], line2[3]);
 			Point2f r;
 
+			double angle = acos((p1 - o1).dot(p2 - o2) / norm(p1 - o1) / norm(p2 - o2));
+
+			if (angle < 0.349066) //20 degrees
+				continue;
+
 			if (intersection(o1, p1, o2, p2, r) && isInside(imageSize, r)) {
 				result.push_back(r);
 			}		
@@ -548,11 +553,11 @@ void reprojectPoints(const std::vector<Point2f>& src, std::vector<Point2f>& dst,
 }
 
 // 4 points of a retangle
-void getFourCorners(const std::vector<Point2f>& corners, Point2f& topLeft, Point2f& bottomLeft, Point2f& topRight, Point2f& bottomRight) {
+void getFourCorners(const std::vector<Point2f>& corners, Point2i& topLeft, Point2i& bottomLeft, Point2i& topRight, Point2i& bottomRight) {
 	topLeft = bottomLeft = topRight = bottomRight = corners[0];
 
 	for (int i = 1; i < corners.size(); i++) {
-		const Point& p = corners[i];
+		const Point2i& p = corners[i];
 
 		if (p.x <= topLeft.x && p.y <= topLeft.y) {
 			topLeft = p;
@@ -572,8 +577,66 @@ void getFourCorners(const std::vector<Point2f>& corners, Point2f& topLeft, Point
 	}
 }
 
+bool isLineInsidePolygon(const std::vector<Point>& polygon, Vec4i line, Size imageSize) {
+	Point2f a = Point2f(line[0], line[1]);
+	Point2f b = Point2f(line[2], line[3]);
+	/*Point2f vec = b - a;
+	double l = norm(vec);
+	vec /= l;
 
-int hough_threshold = 100;
+
+	Point2f t = -a;
+	double angle = -acos(vec.dot(Point2f(1.0f, 0.0f)));
+	double cos_a = cos(angle);
+	double sin_a = sin(angle);
+
+	int nrint = 0;
+
+	for (int i = 0; i < polygon.size(); i++) {
+		int next = (i + 1) % polygon.size();
+
+		Point2f p1 = polygon[i];
+		p1 += t;
+		p1 = Point2f(
+			cos_a * p1.x - sin_a * p1.y,
+			sin_a * p1.x + cos_a * p1.y
+		);
+
+
+		Point2f p2 = polygon[next];
+		p2 += t;
+		p2 = Point2f(
+			cos_a * p2.x - sin_a * p2.y,
+			sin_a * p2.x + cos_a * p2.y
+		);
+
+		if (p1.y == 0 || (p1.y > 0) == (p2.y > 0)) {
+			continue;
+		}
+
+		double intX = (0.0f - p1.y) / (p2.y - p1.y) * (p2.x - p1.x);
+
+		if (0 < intX && intX < l)
+			return false;
+
+		if(intX < 0)
+			nrint++;
+	}
+
+
+	return nrint % 2 == 1;*/
+
+	//return pointPolygonTest(polygon, a, false) >= 0 || pointPolygonTest(polygon, b, false) >= 0;
+
+	Mat lineFrame = Mat(imageSize, CV_8UC1);
+	cv::line(lineFrame, a, b, 255, 4);
+
+	//Mat contourFrame = Mat(imageSize, CV_8UC1);
+	//drawContours(contourFrame, polygon, )
+	return false;
+}
+
+int hough_threshold = 90;
 
 static void CannyThreshold2(int, void*)
 {
@@ -612,14 +675,56 @@ static void CannyThreshold2(int, void*)
 	rectangle(imgWithContours, bounding_rect, Scalar(0, 255, 0), 1, 8, 0);
 	imshow("imgWithContours", imgWithContours);
 
-	int bias = 3;
+	/*Mat contourIm = src_gray.clone();
+	contourIm.setTo(0);
+	drawContours(contourIm, contours, -1, 255, 1, 8);
+	std::vector<Vec2f> contourLines;
+	HoughLines(contourIm, contourLines, hough_rho, hough_theta, 100);
+
+	if (contourLines.size() < 4) {
+		std::cerr << "contour lines were not found";
+		exit(1);
+	}
+
+	contourLines.resize(4);
+
+	imgWithContours = src.clone();
+
+	for (size_t i = 0; i < contourLines.size(); i++)
+	{
+		float rho = contourLines[i][0], theta = contourLines[i][1];
+		Point pt1, pt2;
+		double a = cos(theta), b = sin(theta);
+		double x0 = a * rho, y0 = b * rho;
+		pt1.x = cvRound(x0 + 1000 * (-b));
+		pt1.y = cvRound(y0 + 1000 * (a));
+		pt2.x = cvRound(x0 - 1000 * (-b));
+		pt2.y = cvRound(y0 - 1000 * (a));
+		line(imgWithContours, pt1, pt2, Scalar(0, 0, 255), 3);
+	}
+
+	imshow("contour lines", imgWithContours);*/
+
+
+
+	//std::vector<Point2i> contour_hull;
+	//convexHull(contours[0], contour_hull);
+	//contours = std::vector<std::vector<Point2i>>(1, contour_hull);
+
+	//imgWithContours = src.clone();
+	//drawContours(imgWithContours, contours, -1, Vec3b(0, 0, 255), 1, 8);
+	//rectangle(imgWithContours, bounding_rect, Scalar(0, 255, 0), 1, 8, 0);
+	//imshow("Contour convex hull", imgWithContours);
+
+
+	int bias = 7;
 	bounding_rect.x = max(0, bounding_rect.x - bias);
 	bounding_rect.y = max(0, bounding_rect.y - bias);
 	bounding_rect.width = min(bounding_rect.width + bias, src.cols - 1 - bounding_rect.x);
 	bounding_rect.height = min(bounding_rect.height + bias, src.cols - 1 - bounding_rect.y);
 
-	src = src(bounding_rect);
-	src_gray = src_gray(bounding_rect);
+	//src = src(bounding_rect);
+	//src_gray = src_gray(bounding_rect);
 
 
 
@@ -630,8 +735,12 @@ static void CannyThreshold2(int, void*)
 
 	namedWindow("Detected Lines", WINDOW_NORMAL);
 	namedWindow("Reduced Lines", WINDOW_NORMAL);
-	Mat detectedLinesImg = Mat::zeros(target.rows, target.cols, CV_8UC3);
+	//Mat detectedLinesImg = Mat::zeros(target.rows, target.cols, CV_8UC3);
+	Mat detectedLinesImg = src.clone();
 	Mat reducedLinesImg = detectedLinesImg.clone();
+
+	Mat detectedLinesImgLines = Mat::zeros(target.rows, target.cols, CV_8UC3);
+	Mat reducedLinesImgLines = detectedLinesImgLines.clone();
 
 	// delect lines in any reasonable way
 	Mat grayscale; cvtColor(target, grayscale, COLOR_BGR2GRAY);
@@ -639,9 +748,9 @@ static void CannyThreshold2(int, void*)
 	std::vector<Vec4i> lines; 
 	//detector->detect(grayscale, lines);
 
-	blur(src_gray, detected_edges, Size(3, 3));
-	Canny(detected_edges, detected_edges, lowThreshold, lowThreshold * ratio, kernel_size);
-	imshow(window_name, detected_edges);
+	//blur(src_gray, detected_edges, Size(3, 3));
+	//Canny(detected_edges, detected_edges, lowThreshold, lowThreshold * ratio, kernel_size);
+	//imshow(window_name, detected_edges);
 
 
 
@@ -690,6 +799,9 @@ static void CannyThreshold2(int, void*)
 		line(detectedLinesImg,
 			cv::Point(detectedLine[0], detectedLine[1]),
 			cv::Point(detectedLine[2], detectedLine[3]), colors[labels[i]], 2);
+		line(detectedLinesImgLines,
+			cv::Point(detectedLine[0], detectedLine[1]),
+			cv::Point(detectedLine[2], detectedLine[3]), colors[labels[i]], 2);
 	}
 
 	// build point clouds out of each equivalence classes
@@ -724,10 +836,46 @@ static void CannyThreshold2(int, void*)
 	for (size_t i = 0; i < reducedLines.size(); i++) {
 		const Vec4i& reduced = reducedLines[i];
 		line(reducedLinesImg, Point(reduced[0], reduced[1]), Point(reduced[2], reduced[3]), colors[i], 2);
+		line(reducedLinesImgLines, Point(reduced[0], reduced[1]), Point(reduced[2], reduced[3]), colors[i], 2);
 	}
 
 	imshow("Detected Lines", detectedLinesImg);
 	imshow("Reduced Lines", reducedLinesImg);
+	imshow("Detected Lines - lines only", detectedLinesImgLines);
+	imshow("Reduced Lines - lines only", reducedLinesImgLines);
+	//waitKey();
+
+
+	Mat contourFrame = src_gray.clone();
+	contourFrame.setTo(0);
+	drawContours(contourFrame, contours, -1, 255, 1, 8);
+
+	std::vector<Vec4i> clippedLines;
+	for (const auto& line : reducedLines) {
+		//if(isLineInsidePolygon(contours[0], line))
+		Point2f a = Point2f(line[0], line[1]);
+		Point2f b = Point2f(line[2], line[3]);
+
+		Mat lineFrame = Mat(imageSize, CV_8UC1);
+		lineFrame.setTo(0);
+		cv::line(lineFrame, a, b, 255, 4);
+
+		Mat result;
+		bitwise_and(lineFrame, contourFrame, result);
+
+		if(countNonZero(result) > 0)
+			clippedLines.push_back(line);
+	}
+	reducedLines = clippedLines;
+
+	//reducedLinesImg = Mat::zeros(target.rows, target.cols, CV_8UC3);
+	reducedLinesImg = src.clone();
+	for (size_t i = 0; i < reducedLines.size(); i++) {
+		const Vec4i& reduced = reducedLines[i];
+		line(reducedLinesImg, Point(reduced[0], reduced[1]), Point(reduced[2], reduced[3]), colors[i], 2);
+	}
+	imshow("Reduced Lines filtered", reducedLinesImg);
+
 	//waitKey();
 
 
@@ -827,27 +975,27 @@ static void CannyThreshold2(int, void*)
 
 
 
-	//Point2f topLeft, bottomLeft, topRight, bottomRight;
-	//getFourCorners(reprojectedCorners, topLeft, bottomLeft, topRight, bottomRight);
+	Point2i topLeft, bottomLeft, topRight, bottomRight;
+	getFourCorners(reprojectedCorners, topLeft, bottomLeft, topRight, bottomRight);
 
-	//float dx = (topRight.x - topLeft.x) / 8;
-	//float dy = (bottomLeft.y - topLeft.y) / 8;
+	float dx = (topRight.x - topLeft.x) / 8.0f;
+	float dy = (bottomLeft.y - topLeft.y) / 8.0f;
 
-
-	//std::vector<Point2f> allReprCorners;
-	//for (int i = 0; i <= 8; i++) {
-	//	for (int j = 0; j <= 8; j++) {
-	//		allReprCorners.push_back(topLeft + Point2f(j * dx, i * dy));
-	//	}
-	//}
 
 	std::vector<Point2f> allReprCorners;
-	std::vector<Point2f> intersectionsf;
-	for (const auto& inter : intersections) {
-		intersectionsf.push_back(inter);
+	for (int i = 0; i <= 8; i++) {
+		for (int j = 0; j <= 8; j++) {
+			allReprCorners.push_back(topLeft + Point2i(j * dx, i * dy));
+		}
 	}
 
-	reprojectPoints(intersectionsf, allReprCorners, corners, imageSize);
+	//std::vector<Point2f> allReprCorners;
+	//std::vector<Point2f> intersectionsf;
+	//for (const auto& inter : intersections) {
+	//	intersectionsf.push_back(inter);
+	//}
+
+	//reprojectPoints(intersectionsf, allReprCorners, corners, imageSize);
 
 
 	Mat reprojectedWithAllCorners = reprojected.clone();
@@ -879,6 +1027,9 @@ void testChessboardDetection() {
 		Mat resized;
 		resize(img, resized, imageSize);
 		Mat result = resized.clone();
+
+		imshow("input image", resized);
+
 		src = resized.clone();
 
 		Mat imgGray;
