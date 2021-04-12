@@ -649,7 +649,8 @@ static void CannyThreshold2(int, void*)
 
 	blur(src_gray, detected_edges, Size(3, 3));
 	Canny(detected_edges, detected_edges, lowThreshold, lowThreshold * ratio, kernel_size);
-	imshow("edges before crop", detected_edges);
+	imshow("Canny edge detection", detected_edges);
+	imwrite("Canny edge detection.png", detected_edges);
 
 	std::vector<std::vector<Point2i>> contours;
 
@@ -674,6 +675,7 @@ static void CannyThreshold2(int, void*)
 	drawContours(imgWithContours, contours, -1, Vec3b(0, 0, 255), 1, 8);
 	rectangle(imgWithContours, bounding_rect, Scalar(0, 255, 0), 1, 8, 0);
 	imshow("imgWithContours", imgWithContours);
+	imwrite("imgWithContours.png", imgWithContours);
 
 	/*Mat contourIm = src_gray.clone();
 	contourIm.setTo(0);
@@ -840,10 +842,16 @@ static void CannyThreshold2(int, void*)
 	}
 
 	imshow("Detected Lines", detectedLinesImg);
+	imwrite("Detected Lines.png", detectedLinesImg);
 	imshow("Reduced Lines", reducedLinesImg);
+	imwrite("Reduced Lines.png", reducedLinesImg);
 	imshow("Detected Lines - lines only", detectedLinesImgLines);
+	imwrite("Detected Lines - lines only.png", detectedLinesImgLines);
 	imshow("Reduced Lines - lines only", reducedLinesImgLines);
+	imwrite("Reduced Lines - lines only.png", reducedLinesImgLines);
 	//waitKey();
+
+	std::cout << "nr reduced lines: " << reducedLines.size() << "\n";
 
 
 	Mat contourFrame = src_gray.clone();
@@ -868,6 +876,8 @@ static void CannyThreshold2(int, void*)
 	}
 	reducedLines = clippedLines;
 
+	std::cout << "nr filtered lines: " << reducedLines.size() << "\n";
+
 	//reducedLinesImg = Mat::zeros(target.rows, target.cols, CV_8UC3);
 	reducedLinesImg = src.clone();
 	for (size_t i = 0; i < reducedLines.size(); i++) {
@@ -875,6 +885,7 @@ static void CannyThreshold2(int, void*)
 		line(reducedLinesImg, Point(reduced[0], reduced[1]), Point(reduced[2], reduced[3]), colors[i], 2);
 	}
 	imshow("Reduced Lines filtered", reducedLinesImg);
+	imwrite("Reduced Lines filtered.png", reducedLinesImg);
 
 	//waitKey();
 
@@ -898,6 +909,7 @@ static void CannyThreshold2(int, void*)
 	}
 
 	imshow("Intersection points", imgWithIntersections);
+	imwrite("Intersection points.png", imgWithIntersections);
 
 	Point2i center = Point2i(src.cols / 2, src.rows / 2);
 
@@ -912,6 +924,7 @@ static void CannyThreshold2(int, void*)
 		circle(imgWithConvexHull, inter, 5, Vec3b(0, 0, 255), -1);
 	}
 	imshow("Convex hull of intersection points", imgWithConvexHull);
+	imwrite("Convex hull of intersection points.png", imgWithConvexHull);
 
 
 
@@ -953,6 +966,7 @@ static void CannyThreshold2(int, void*)
 	}
 
 	imshow("Intersection corners", imgWithIntCorners);
+	imwrite("Intersection corners.png", imgWithIntCorners);
 
 
 	std::vector<Point2f> corners;
@@ -972,6 +986,7 @@ static void CannyThreshold2(int, void*)
 	}
 
 	imshow("Reprojected image with four corners", reprojectedWith4Corners);
+	imwrite("Reprojected image with four corners.png", reprojectedWith4Corners);
 
 
 
@@ -1003,6 +1018,7 @@ static void CannyThreshold2(int, void*)
 		circle(reprojectedWithAllCorners, corner, 5, Vec3b(0, 0, 255), -1);
 	}
 	imshow("Reprojected image with all corners", reprojectedWithAllCorners);
+	imwrite("Reprojected image with all corners.png", reprojectedWithAllCorners);
 
 }
 
@@ -1037,6 +1053,7 @@ void testChessboardDetection() {
 		src_gray = imgGray.clone();
 
 		imshow("image", imgGray);
+		imwrite("image-gray.png", imgGray);
 
 		namedWindow(window_name, WINDOW_AUTOSIZE);
 
