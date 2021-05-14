@@ -39,7 +39,6 @@ Mat getDigitalChessboard(std::vector<std::pair<Piece, Point2i>> pieces)
 	const int imageSize = blockSize * 8;
 
 	Mat board = imread(path_board, IMREAD_COLOR);
-	Mat digitalChessboard(imageSize, imageSize, CV_8UC4, Scalar::all(0));
 
 	int row = 0;
 	for (int i = 0; i < imageSize; i = i + blockSize) {
