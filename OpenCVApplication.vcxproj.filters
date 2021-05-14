@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="calibration.cpp" />
+    <ClCompile Include="chessboard.cpp" />
+    <ClCompile Include="colors.cpp" />
+    <ClCompile Include="Menu.cpp" />
+    <ClCompile Include="OpenCVApplication.cpp" />
+    <ClCompile Include="stdafx.cpp" />
+    <ClCompile Include="util.cpp" />
+    <ClCompile Include="visualization.cpp" />
+    <ClCompile Include="windows_fs.cpp" />
+    <ClCompile Include="tensorflow.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="calibration.h" />
+    <ClInclude Include="chessboard.h" />
+    <ClInclude Include="colors.h" />
+    <ClInclude Include="common.h" />
+    <ClInclude Include="config.h" />
+    <ClInclude Include="Menu.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="targetver.h" />
+    <ClInclude Include="util.h" />
+    <ClInclude Include="visualization.h" />
+    <ClInclude Include="windows_fs.h" />
+    <ClInclude Include="tensorflow.h" />
+  </ItemGroup>
+</Project>

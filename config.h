@@ -2,6 +2,12 @@
 
 #include <opencv2/opencv.hpp>
 
+struct Config {
+	const std::string path_model_graph = "model\\10000\\frozen_inference_graph.pb";
+
+	const cv::Size imageSize = cv::Size(512, 512);
+} const config;
+
 //const Size boardSize = Size(9, 6);
 const cv::Size boardSize = cv::Size(8, 8);
 const cv::Size winSize = cv::Size(11, 11);

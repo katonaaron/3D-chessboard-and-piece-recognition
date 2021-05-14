@@ -35,6 +35,37 @@ std::string getPieceFilePath(Piece piece)
 	return "";
 }
 
+std::string pieceToString(Piece piece)
+{
+	switch (piece) {
+	case Piece::BlackBishop:
+		return "black bishop";
+	case Piece::WhiteBishop:
+		return "white bishop";
+	case Piece::BlackKing:
+		return "black king";
+	case Piece::WhiteKing:
+		return "white king";
+	case Piece::BlackKnight:
+		return "black knight";
+	case Piece::WhiteKnight:
+		return "white knight";
+	case Piece::BlackPawn:
+		return "black pawn";
+	case Piece::WhitePawn:
+		return "white pawn";
+	case Piece::BlackRook:
+		return "black rook";
+	case Piece::WhiteRook:
+		return "white rook";
+	case Piece::BlackQueen:
+		return "black queen";
+	case Piece::WhiteQueen:
+		return "white queen";
+	}
+	return "";
+}
+
 Mat getDigitalChessboard(std::vector<std::pair<Piece, Point2i>> pieces)
 {
 	const int blockSize = 64;

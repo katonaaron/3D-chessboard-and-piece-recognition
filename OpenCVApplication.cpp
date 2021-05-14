@@ -16,6 +16,7 @@
 #include "chessboard.h"
 #include "visualization.h"
 #include "windows_fs.h"
+#include "tensorflow.h"
 
 using namespace cv;
 
@@ -115,6 +116,62 @@ void show_boundingBox(std::string name, const Mat& background_img, const std::ve
 
 void show_boundingBox (std::string name, const Mat& background_img, Rect2f boundingBox) {
 	show_boundingBox(name, background_img, rectangleToPoints(boundingBox));
+}
+
+Piece classToPiece(int label) {
+	switch (label)
+	{
+	case 0:
+		std::cerr << "Unlabeled item\n";
+		exit(1);
+	case 1:
+	case 8:
+		return Piece::WhiteBishop;
+	case 2:
+		return Piece::BlackBishop;
+	case 3:
+		return Piece::BlackKing;
+	case 4:
+		return Piece::BlackKnight;
+	case 5:
+		return Piece::BlackPawn;
+	case 6:
+		return Piece::BlackQueen;
+	case 7:
+		return Piece::BlackRook;
+	case 9:
+		return Piece::WhiteKing;
+	case 10:
+		return Piece::WhiteKnight;
+	case 11:
+		return Piece::WhitePawn;
+	case 12:
+		return Piece::WhiteQueen;
+	case 13:
+		return Piece::WhiteRook;
+	default:
+		std::cerr << "Invalid label\n";
+		exit(1);
+		break;
+	}
+}
+
+void print_prediction(const Prediction& pred, float thresholdScore = 0.0f) {
+	std::cout << "num_detections: " << pred.num_detections << "\n";
+
+	for (int i = 0; i < pred.num_detections; i++) {
+		if (pred.scores[i] < thresholdScore)
+			continue;
+		std::cout << "#" << i << ":\n";
+		std::cout << "\t class: " << pieceToString(classToPiece(pred.classes[i])) << "\n";
+		std::cout << "\t score: " << pred.scores[i] << "\n";
+		std::cout << "\t box: ";
+		for (const auto& cord : pred.boxes[i]) {
+			std::cout << cord << " ";
+		}
+		std::cout << "\n";
+	}
+
 }
 
 void testCameraCalibration(Mat cameraMatrix, const Mat& distCoeffs)
@@ -743,6 +800,63 @@ void testVisualizeChessboard() {
 	waitKey(0);
 }
 
+
+void testPieceRecognition() {
+	//saving current path
+	auto path = std::filesystem::current_path();
+	const float threshold_score = 0.5f;
+
+	char fname[MAX_PATH];
+	while (openFileDlg(fname))
+	{
+		Mat img = imread(fname, IMREAD_COLOR);
+		resize(img, img, config.imageSize);
+		Prediction pred;
+
+		//setting path back
+		std::filesystem::current_path(path); 
+
+		Model model(config.path_model_graph);
+		std::cout << "Prediction started\n";
+		model.predict(img, pred);
+
+		if (pred.num_detections == 0) {
+			std::cerr << "No piece was found\n";
+			exit(1);
+		}
+
+		std::cout << "num_detections: " << pred.num_detections << "\n";
+		std::cout << "score statistics:\n";
+		std::cout << "\tmin: " << *std::min_element(pred.scores.begin(), pred.scores.end()) << "\n";
+		std::cout << "\tmean: " << accumulate(pred.scores.begin(), pred.scores.end(), 0.0) / pred.scores.size() << "\n";
+		std::cout << "\tmax: " << *std::max_element(pred.scores.begin(), pred.scores.end()) << "\n";
+
+		print_prediction(pred, threshold_score);
+
+		Size size = img.size();
+		int height = size.height;
+		int width = size.width;
+
+		for (int i = 0; i < pred.num_detections; i++) {
+			auto box = pred.boxes[i];
+			auto score = pred.scores[i];
+			if (score < threshold_score) {
+				continue;
+			}
+			int ymin = (int)(box[0] * height);
+			int xmin = (int)(box[1] * width);
+			int h = (int)(box[2] * height) - ymin;
+			int w = (int)(box[3] * width) - xmin;
+			Rect rect = Rect(xmin, ymin, w, h);
+			rectangle(img, rect, cv::Scalar(0, 0, 255), 2);
+		}
+
+		show_image("piece recognition", img);
+
+		waitKey();
+	}
+}
+
 int main()
 {
 	Menu menu({
@@ -750,7 +864,8 @@ int main()
 		{"Print the paths of the calibration images", printCalibrationImagePaths},
 		{"Camera calibration", testCameraCalibration},
 		{"Chessboard detection", testChessboardDetection},
-		{"Chessboard visualization", testVisualizeChessboard}
+		{"Chessboard visualization", testVisualizeChessboard},
+		{"Piece recognition", testPieceRecognition},
 		});
 
 	menu.show(std::cin, std::cout);

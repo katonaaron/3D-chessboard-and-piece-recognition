@@ -19,6 +19,8 @@ enum class Piece
 	WhiteQueen = 11
 };
 
+std::string pieceToString(Piece piece);
+
 const cv::Point2i C_A1(0, 7);
 const cv::Point2i C_A2(0, 6);
 const cv::Point2i C_A3(0, 5);

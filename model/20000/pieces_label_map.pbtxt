@@ -1,0 +1,65 @@
+item {
+    name: "bishop",
+    id: 1,
+    display_name: "bishop"
+}
+item {
+    name: "black-bishop",
+    id: 2,
+    display_name: "black-bishop"
+}
+item {
+    name: "black-king",
+    id: 3,
+    display_name: "black-king"
+}
+item {
+    name: "black-knight",
+    id: 4,
+    display_name: "black-knight"
+}
+item {
+    name: "black-pawn",
+    id: 5,
+    display_name: "black-pawn"
+}
+item {
+    name: "black-queen",
+    id: 6,
+    display_name: "black-queen"
+}
+item {
+    name: "black-rook",
+    id: 7,
+    display_name: "black-rook"
+}
+item {
+    name: "white-bishop",
+    id: 8,
+    display_name: "white-bishop"
+}
+item {
+    name: "white-king",
+    id: 9,
+    display_name: "white-king"
+}
+item {
+    name: "white-knight",
+    id: 10,
+    display_name: "white-knight"
+}
+item {
+    name: "white-pawn",
+    id: 11,
+    display_name: "white-pawn"
+}
+item {
+    name: "white-queen",
+    id: 12,
+    display_name: "white-queen"
+}
+item {
+    name: "white-rook",
+    id: 13,
+    display_name: "white-rook"
+}
