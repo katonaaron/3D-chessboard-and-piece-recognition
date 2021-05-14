@@ -1,6 +1,8 @@
+#include "stdafx.h"
 #include "visualization.h"
 #include "config.h"
 
+using namespace cv;
 
 std::string getPieceFilePath(Piece piece)
 {

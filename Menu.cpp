@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "Menu.h"
 
 void Menu::show(std::istream& is, std::ostream& os) {

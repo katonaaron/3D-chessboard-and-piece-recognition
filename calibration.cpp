@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "calibration.h"
 
 using namespace cv;

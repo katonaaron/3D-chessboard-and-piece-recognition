@@ -1,5 +1,6 @@
 // OpenCVApplication.cpp : Defines the entry point for the console application.
 //
+#include "stdafx.h"
 
 #include <random>
 #include <algorithm>
@@ -14,6 +15,7 @@
 #include "calibration.h"
 #include "chessboard.h"
 #include "visualization.h"
+#include "windows_fs.h"
 
 using namespace cv;
 
@@ -552,10 +554,10 @@ Margin calcOptimalMargin(const std::vector<Point2f>& corners, const std::vector<
 	}
 
 	return {
-		abs(min(0, minY)) + bias,
-		max(0, maxY - imageSize.height) + bias,
-		abs(min(0, minX)) + bias,
-		max(0, maxX - imageSize.width) + bias
+		abs(std::min(0.0f, minY)) + bias,
+		std::max(0.0f, maxY - imageSize.height) + bias,
+		abs(std::min(0.0f, minX)) + bias,
+		std::max(0.0f, maxX - imageSize.width) + bias
 	};
 }
 

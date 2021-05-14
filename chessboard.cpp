@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "chessboard.h"
 #define _USE_MATH_DEFINES
 #include <math.h>
