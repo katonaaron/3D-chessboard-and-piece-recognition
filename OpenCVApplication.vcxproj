@@ -97,14 +97,18 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="calibration.h" />
     <ClInclude Include="chessboard.h" />
+    <ClInclude Include="colors.h" />
     <ClInclude Include="common.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="Menu.h" />
     <ClInclude Include="util.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="calibration.cpp" />
     <ClCompile Include="chessboard.cpp" />
+    <ClCompile Include="colors.cpp" />
     <ClCompile Include="common.cpp" />
     <ClCompile Include="Menu.cpp" />
     <ClCompile Include="OpenCVApplication.cpp" />

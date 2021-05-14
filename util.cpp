@@ -1,4 +1,5 @@
 #include "util.h"
+#include "common.h"
 
 namespace fs = std::filesystem;
 
@@ -44,4 +45,14 @@ std::vector<std::string> getFilesInDir(const std::string& dirName)
 	}
 
 	return files;
+}
+
+double degToRad(double degree)
+{
+	return (degree * (PI / 180.0));
+}
+
+double radToDeg(double radian)
+{
+	return (radian / (PI / 180.0));
 }

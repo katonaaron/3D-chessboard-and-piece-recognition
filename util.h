@@ -19,3 +19,7 @@ showHistogram ("MyHist", hist_dir, 255, 200);
 void showHistogram(const std::string& name, const int* hist, const int  hist_cols, const int hist_height);
 
 std::vector<std::string> getFilesInDir(const std::string& dirName);
+
+double degToRad(double degree);
+
+double radToDeg(double radian);

@@ -1,7 +1,6 @@
 // OpenCVApplication.cpp : Defines the entry point for the console application.
 //
 
-
 #include <random>
 #include <algorithm>
 #include <numeric>
@@ -10,18 +9,110 @@
 #include "Menu.h"
 #include "Menu.h"
 #include "config.h"
-#include "chessboard.h"
 #include "util.h"
-
-
+#include "colors.h"
+#include "calibration.h"
+#include "chessboard.h"
 
 using namespace cv;
+
+bool comparePoints(const Point2f& p1, const Point2f& p2) {
+	return std::tie(p1.x, p1.y) < std::tie(p2.x, p2.y);
+}
+
 
 void waitForKey() {
 	std::cout << "Press any key...." << std::endl;
 	std::cin.get();
 }
 
+void show_image(std::string name, const Mat& img) {
+	imshow(name, img);
+	imwrite(name + ".png", img);
+}
+
+template<typename _Tp>
+void show_contour(std::string name, const Mat& background_img, const std::vector<_Tp>& contour) {
+	const Vec3b color_contour(0, 0, 255);
+
+	std::vector<std::vector<_Tp>> contours(1, contour);
+	Mat imgWithContour = background_img.clone();
+
+	drawContours(imgWithContour, contours, -1, color_contour, 1, 8);
+	show_image(name, imgWithContour);
+}
+
+void show_lines(std::string name, const Mat& background_img, const std::vector<Vec4i>& lines) {
+	Mat img = background_img.clone();
+
+	for (const Vec4i& line : lines) {
+		Scalar color;
+
+		if (img.channels() == 1) {
+			color = genRandomGrayColor();
+		}
+		else {
+			color = genUniqueBGRColor();
+		}
+
+		cv::line(img,
+			cv::Point(line[0], line[1]),
+			cv::Point(line[2], line[3]), color, 2);
+	}
+
+	show_image(name, img);
+}
+
+template<typename _Tp>
+void draw_points(Mat& img, const std::vector<_Tp>& points) {
+
+	for (const auto& point : points) {
+		circle(img, point, 5, Vec3b(0, 0, 255), -1);
+	}
+}
+
+template<typename _Tp>
+void show_points (std::string name, const Mat& background_img, const std::vector<_Tp>& points) {
+	Mat img = background_img.clone();
+
+	draw_points(img, points);
+
+	show_image(name, img);
+}
+
+template<typename _Tp>
+void print_points(std::string message, const std::vector<_Tp>& points) {
+	std::cout << message << ": ";
+	for (const auto& point : points) {
+		std::cout << point << " ";
+	}
+	std::cout << "\n";
+}
+
+std::vector<Point2f> rectangleToPoints(cv::Rect2f rect) {
+	return {
+		rect.tl(),
+		rect.tl() + Point2f(0, rect.height),
+		rect.br(),
+		rect.tl() + Point2f(rect.width, 0)
+	};
+}
+
+void show_boundingBox(std::string name, const Mat& background_img, const std::vector<Point2f>& boundingBoxPoints) {
+	Mat img = background_img.clone();
+
+	draw_points(img, boundingBoxPoints);
+	for (int i = 0; i < boundingBoxPoints.size(); i++) {
+		int j = (i + 1) % boundingBoxPoints.size();
+		line(img, boundingBoxPoints[i], boundingBoxPoints[j], Vec3b(0, 255, 0));
+	}
+
+	show_image(name, img);
+}
+
+void show_boundingBox (std::string name, const Mat& background_img, Rect2f boundingBox) {
+	show_boundingBox(name, background_img, rectangleToPoints(boundingBox));
+}
 
 void testCameraCalibration(Mat cameraMatrix, const Mat& distCoeffs)
 {
@@ -171,960 +262,452 @@ void printCalibrationImagePaths() {
 	waitForKey();
 }
 
-void adjustBrightness(Mat& img) {
-	Mat kernel = getStructuringElement(MORPH_ELLIPSE, Size(11, 11));
-	Mat closed;
-	morphologyEx(img, closed, MORPH_CLOSE, kernel);
-	Mat floatMat;
-	img.convertTo(floatMat, CV_32FC1);
-	floatMat /= closed;
-	normalize(floatMat, floatMat, 0, 255, NORM_MINMAX);
-	floatMat.convertTo(img, img.type());
-}
+//void adjustBrightness(Mat& img) {
+//	Mat kernel = getStructuringElement(MORPH_ELLIPSE, Size(11, 11));
+//	Mat closed;
+//	morphologyEx(img, closed, MORPH_CLOSE, kernel);
+//	Mat floatMat;
+//	img.convertTo(floatMat, CV_32FC1);
+//	floatMat /= closed;
+//	normalize(floatMat, floatMat, 0, 255, NORM_MINMAX);
+//	floatMat.convertTo(img, img.type());
+//}
+//
 
-uchar genRandomGrayColor() {
-	static std::default_random_engine gen;
-	static std::uniform_int_distribution<int> d(0, 255);
-	return d(gen);
-}
-
-Vec3b genRandomBGRColor() {
-	return Vec3b(genRandomGrayColor(), genRandomGrayColor(), genRandomGrayColor());
-}
-
-Vec3b convHSVToRGB(float H, float S, float V) {
-	float C = V * S;
-	float h = H / 60;
-	float X = (float)(C * (1.0f - fabs(fmod(h, 2) - 1.0f)));
-	float m = V - C;
-
-	assert(0 <= h && h <= 6);
-
-	float r1, g1, b1;
-
-	if (h <= 1) {
-		r1 = C;
-		g1 = X;
-		b1 = 0.0f;
-	}
-	else if (h <= 2) {
-		r1 = X;
-		g1 = C;
-		b1 = 0.0f;
-	}
-	else if (h <= 3) {
-		r1 = 0.0f;
-		g1 = C;
-		b1 = X;
-	}
-	else if (h <= 4) {
-		r1 = 0.0f;
-		g1 = X;
-		b1 = C;
-	}
-	else if (h <= 5) {
-		r1 = X;
-		g1 = 0.0f;
-		b1 = C;
-	}
-	else {
-		r1 = C;
-		g1 = 0.0f;
-		b1 = X;
-	}
+//
+//
+//
+//bool isEqual(const Vec4i& _l1, const Vec4i& _l2)
+//{
+//	Vec4i l1(_l1), l2(_l2);
+//
+//	float length1 = sqrtf((l1[2] - l1[0]) * (l1[2] - l1[0]) + (l1[3] - l1[1]) * (l1[3] - l1[1]));
+//	float length2 = sqrtf((l2[2] - l2[0]) * (l2[2] - l2[0]) + (l2[3] - l2[1]) * (l2[3] - l2[1]));
+//
+//	float product = (l1[2] - l1[0]) * (l2[2] - l2[0]) + (l1[3] - l1[1]) * (l2[3] - l2[1]);
+//
+//	if (fabs(product / (length1 * length2)) < cos(CV_PI / 30))
+//		return false;
+//
+//	float mx1 = (l1[0] + l1[2]) * 0.5f;
+//	float mx2 = (l2[0] + l2[2]) * 0.5f;
+//
+//	float my1 = (l1[1] + l1[3]) * 0.5f;
+//	float my2 = (l2[1] + l2[3]) * 0.5f;
+//	float dist = sqrtf((mx1 - mx2) * (mx1 - mx2) + (my1 - my2) * (my1 - my2));
+//
+//	if (dist > max(length1, length2) * 0.5f)
+//		return false;
+//
+//	return true;
+//}
+//
 
 
-	return Vec3b(
-		static_cast<uchar>((b1 + m) * 255),
-		static_cast<uchar>((g1 + m) * 255),
-		static_cast<uchar>((r1 + m) * 255)
-	);
-}
+//
+//// 4 points of a retangle
+//void getFourCorners(const std::vector<Point2f>& corners, Point2i& topLeft, Point2i& bottomLeft, Point2i& topRight, Point2i& bottomRight) {
+//	topLeft = bottomLeft = topRight = bottomRight = corners[0];
+//
+//	for (int i = 1; i < corners.size(); i++) {
+//		const Point2i& p = corners[i];
+//
+//		if (p.x <= topLeft.x && p.y <= topLeft.y) {
+//			topLeft = p;
+//		}
+//
+//		if (p.x <= bottomLeft.x && p.y >= bottomLeft.y) {
+//			bottomLeft = p;
+//		}
+//
+//		if (p.x >= topRight.x && p.y <= topRight.y) {
+//			topRight = p;
+//		}
+//
+//		if (p.x >= bottomRight.x && p.y >= bottomRight.y) {
+//			bottomRight = p;
+//		}
+//	}
+//}
+//
+//bool isLineInsidePolygon(const std::vector<Point>& polygon, Vec4i line, Size imageSize) {
+//	Point2f a = Point2f(line[0], line[1]);
+//	Point2f b = Point2f(line[2], line[3]);
+//	/*Point2f vec = b - a;
+//	double l = norm(vec);
+//	vec /= l;
+//
+//
+//	Point2f t = -a;
+//	double angle = -acos(vec.dot(Point2f(1.0f, 0.0f)));
+//	double cos_a = cos(angle);
+//	double sin_a = sin(angle);
+//
+//	int nrint = 0;
+//
+//	for (int i = 0; i < polygon.size(); i++) {
+//		int next = (i + 1) % polygon.size();
+//
+//		Point2f p1 = polygon[i];
+//		p1 += t;
+//		p1 = Point2f(
+//			cos_a * p1.x - sin_a * p1.y,
+//			sin_a * p1.x + cos_a * p1.y
+//		);
+//
+//
+//		Point2f p2 = polygon[next];
+//		p2 += t;
+//		p2 = Point2f(
+//			cos_a * p2.x - sin_a * p2.y,
+//			sin_a * p2.x + cos_a * p2.y
+//		);
+//
+//		if (p1.y == 0 || (p1.y > 0) == (p2.y > 0)) {
+//			continue;
+//		}
+//
+//		double intX = (0.0f - p1.y) / (p2.y - p1.y) * (p2.x - p1.x);
+//
+//		if (0 < intX && intX < l)
+//			return false;
+//
+//		if(intX < 0)
+//			nrint++;
+//	}
+//
+//
+//	return nrint % 2 == 1;*/
+//
+//	//return pointPolygonTest(polygon, a, false) >= 0 || pointPolygonTest(polygon, b, false) >= 0;
+//
+//	Mat lineFrame = Mat(imageSize, CV_8UC1);
+//	cv::line(lineFrame, a, b, 255, 4);
+//
+//	//Mat contourFrame = Mat(imageSize, CV_8UC1);
+//	//drawContours(contourFrame, polygon, )
+//	return false;
+//}
+//
+//int hough_threshold = 90;
+//
+//static void CannyThreshold2(int, void*)
+//{
 
-Vec3b genUniqueBGRColor() {
-	static const byte EXPECTED_MAX = 15;
-	static int HUE_FACTOR = 255 / EXPECTED_MAX;
-	static int id = 1;
+//	//std::vector<Point2i> contour_hull;
+//	//convexHull(contours[0], contour_hull);
+//	//contours = std::vector<std::vector<Point2i>>(1, contour_hull);
+//
+//	//imgWithContours = src.clone();
+//	//drawContours(imgWithContours, contours, -1, Vec3b(0, 0, 255), 1, 8);
+//	//rectangle(imgWithContours, bounding_rect, Scalar(0, 255, 0), 1, 8, 0);
+//	//imshow("Contour convex hull", imgWithContours);
+//
+//
+//	int bias = 7;
+//	bounding_rect.x = max(0, bounding_rect.x - bias);
+//	bounding_rect.y = max(0, bounding_rect.y - bias);
+//	bounding_rect.width = min(bounding_rect.width + bias, src.cols - 1 - bounding_rect.x);
+//	bounding_rect.height = min(bounding_rect.height + bias, src.cols - 1 - bounding_rect.y);
+//
+//	//src = src(bounding_rect);
+//	//src_gray = src_gray(bounding_rect);
+//
+//
+//
 
-	float hue = (id * HUE_FACTOR) % 255;
-	float saturation = 175;
-	float brightness = 175;
 
-	id += 7;
+//
+//	Mat reprojected;
+//	std::vector<Point2f> reprojectedCorners;
+//	reprojectImage(src, reprojected, convex_hull, imageSize);
+//
+//	
+//	Mat reprojectedWith4Corners = reprojected.clone();
+//	reprojectPoints(corners, reprojectedCorners, corners, imageSize);
+//	for (const auto& corner : reprojectedCorners) {
+//		circle(reprojectedWith4Corners, corner, 5, Vec3b(0, 0, 255), -1);
+//	}
+//
+//	imshow("Reprojected image with four corners", reprojectedWith4Corners);
+//	imwrite("Reprojected image with four corners.png", reprojectedWith4Corners);
+//
+//
+//
+//	Point2i topLeft, bottomLeft, topRight, bottomRight;
+//	getFourCorners(reprojectedCorners, topLeft, bottomLeft, topRight, bottomRight);
+//
+//	float dx = (topRight.x - topLeft.x) / 8.0f;
+//	float dy = (bottomLeft.y - topLeft.y) / 8.0f;
+//
+//
+//	std::vector<Point2f> allReprCorners;
+//	for (int i = 0; i <= 8; i++) {
+//		for (int j = 0; j <= 8; j++) {
+//			allReprCorners.push_back(topLeft + Point2i(j * dx, i * dy));
+//		}
+//	}
+//
+//	//std::vector<Point2f> allReprCorners;
+//	//std::vector<Point2f> intersectionsf;
+//	//for (const auto& inter : intersections) {
+//	//	intersectionsf.push_back(inter);
+//	//}
+//
+//	//reprojectPoints(intersectionsf, allReprCorners, corners, imageSize);
+//
+//
+//	Mat reprojectedWithAllCorners = reprojected.clone();
+//	for (const auto& corner : allReprCorners) {
+//		circle(reprojectedWithAllCorners, corner, 5, Vec3b(0, 0, 255), -1);
+//	}
+//	imshow("Reprojected image with all corners", reprojectedWithAllCorners);
+//	imwrite("Reprojected image with all corners.png", reprojectedWithAllCorners);
+//
+//}
 
-	return convHSVToRGB(hue, saturation, brightness);
-}
+struct Margin {
+	float top = 0.0f;
+	float bottom = 0.0f;
+	float left = 0.0f;
+	float right = 0.0f;
+};
 
-int lowThreshold = 50;
-const int max_lowThreshold = 100;
-const int ratio = 3;
-const int kernel_size = 3;
-const char* window_name = "Edge Map";
-
-Mat src, src_gray;
-Mat dst, detected_edges;
-
-bool isEqual(const Vec4i& _l1, const Vec4i& _l2)
-{
-	Vec4i l1(_l1), l2(_l2);
-
-	float length1 = sqrtf((l1[2] - l1[0]) * (l1[2] - l1[0]) + (l1[3] - l1[1]) * (l1[3] - l1[1]));
-	float length2 = sqrtf((l2[2] - l2[0]) * (l2[2] - l2[0]) + (l2[3] - l2[1]) * (l2[3] - l2[1]));
-
-	float product = (l1[2] - l1[0]) * (l2[2] - l2[0]) + (l1[3] - l1[1]) * (l2[3] - l2[1]);
-
-	if (fabs(product / (length1 * length2)) < cos(CV_PI / 30))
-		return false;
-
-	float mx1 = (l1[0] + l1[2]) * 0.5f;
-	float mx2 = (l2[0] + l2[2]) * 0.5f;
-
-	float my1 = (l1[1] + l1[3]) * 0.5f;
-	float my2 = (l2[1] + l2[3]) * 0.5f;
-	float dist = sqrtf((mx1 - mx2) * (mx1 - mx2) + (my1 - my2) * (my1 - my2));
-
-	if (dist > max(length1, length2) * 0.5f)
-		return false;
-
-	return true;
-}
-
-Vec2d linearParameters(Vec4i line) {
-	Mat a = (Mat_<double>(2, 2) <<
-		line[0], 1,
-		line[2], 1);
-	Mat y = (Mat_<double>(2, 1) <<
-		line[1],
-		line[3]);
-	Vec2d mc; solve(a, y, mc);
-	return mc;
-}
-
-Vec4i extendedLine(Vec4i line, double d) {
-	// oriented left-t-right
-	Vec4d _line = line[2] - line[0] < 0 ? Vec4d(line[2], line[3], line[0], line[1]) : Vec4d(line[0], line[1], line[2], line[3]);
-	double m = linearParameters(_line)[0];
-	// solution of pythagorean theorem and m = yd/xd
-	double xd = sqrt(d * d / (m * m + 1));
-	double yd = xd * m;
-	return Vec4d(_line[0] - xd, _line[1] - yd, _line[2] + xd, _line[3] + yd);
-}
-
-std::vector<Point2i> boundingRectangleContour(Vec4i line, float d) {
-	// finds coordinates of perpendicular lines with length d in both line points
-	// https://math.stackexchange.com/a/2043065/183923
-
-	Vec2f mc = linearParameters(line);
-	float m = mc[0];
-	float factor = sqrtf(
-		(d * d) / (1 + (1 / (m * m)))
-	);
-
-	float x3, y3, x4, y4, x5, y5, x6, y6;
-	// special case(vertical perpendicular line) when -1/m -> -infinity
-	if (m == 0) {
-		x3 = line[0]; y3 = line[1] + d;
-		x4 = line[0]; y4 = line[1] - d;
-		x5 = line[2]; y5 = line[3] + d;
-		x6 = line[2]; y6 = line[3] - d;
-	}
-	else {
-		// slope of perpendicular lines
-		float m_per = -1 / m;
-
-		// y1 = m_per * x1 + c_per
-		float c_per1 = line[1] - m_per * line[0];
-		float c_per2 = line[3] - m_per * line[2];
-
-		// coordinates of perpendicular lines
-		x3 = line[0] + factor; y3 = m_per * x3 + c_per1;
-		x4 = line[0] - factor; y4 = m_per * x4 + c_per1;
-		x5 = line[2] + factor; y5 = m_per * x5 + c_per2;
-		x6 = line[2] - factor; y6 = m_per * x6 + c_per2;
-	}
-
-	return std::vector<Point2i> {
-		Point2i(x3, y3),
-			Point2i(x4, y4),
-			Point2i(x6, y6),
-			Point2i(x5, y5)
+// assumes counterclockwise order, starting from top-left
+std::vector<Point2f> createCorners(cv::Size imageSize, Margin margin = {}) {
+	return {
+	{0 + margin.left, 0 + margin.top}, // top-left
+	{0 + margin.left, imageSize.height - margin.bottom}, // bottom-left
+	{imageSize.width - margin.right, imageSize.height - margin.bottom}, // bottom-right
+	{imageSize.width - margin.right, 0 + margin.top}, // top-right
 	};
 }
 
-bool extendedBoundingRectangleLineEquivalence(const Vec4i& _l1, const Vec4i& _l2, float extensionLengthFraction, float maxAngleDiff, float boundingRectangleThickness) {
+// assumes counterclockwise order, starting from top-left
+void calcProjectionParams(const std::vector<Point2f>& corners, Mat& homography, Mat& perspective, cv::Size imageSize, Margin margin = {}) {
+	std::vector<Point2f> repr_corners = createCorners(imageSize, margin);
+	homography = findHomography(corners, repr_corners);
+	perspective = getPerspectiveTransform(corners, repr_corners);
+}
 
-	Vec4i l1(_l1), l2(_l2);
-	// extend lines by percentage of line width
-	float len1 = sqrtf((l1[2] - l1[0]) * (l1[2] - l1[0]) + (l1[3] - l1[1]) * (l1[3] - l1[1]));
-	float len2 = sqrtf((l2[2] - l2[0]) * (l2[2] - l2[0]) + (l2[3] - l2[1]) * (l2[3] - l2[1]));
-	Vec4i el1 = extendedLine(l1, len1 * extensionLengthFraction);
-	Vec4i el2 = extendedLine(l2, len2 * extensionLengthFraction);
 
-	// reject the lines that have wide difference in angles
-	float a1 = atan(linearParameters(el1)[0]);
-	float a2 = atan(linearParameters(el2)[0]);
-	if (fabs(a1 - a2) > maxAngleDiff * PI / 180.0) {
-		return false;
+inline double getClockwiseAngle(Point2f p) {
+	return -atan2(p.x, -p.y);;
+}
+
+Point2f findCentroid(const std::vector<Point2f>& points) {
+	Point2f center;
+
+	for (const auto& p : points) {
+		center += p;
 	}
 
-	// calculate window around extended line
-	// at least one point needs to inside extended bounding rectangle of other line,
-	std::vector<Point2i> lineBoundingContour = boundingRectangleContour(el1, boundingRectangleThickness / 2);
-	return
-		pointPolygonTest(lineBoundingContour, cv::Point(el2[0], el2[1]), false) == 1 ||
-		pointPolygonTest(lineBoundingContour, cv::Point(el2[2], el2[3]), false) == 1;
+	return center / (float)points.size();
+} 
+
+void sortPoints(std::vector<Point2f>& points, bool clockWise) {
+	Point2f center = findCentroid(points);
+
+	std::sort(points.begin(), points.end(), [&](const auto& p1, const auto& p2) {
+		if (clockWise)
+			return getClockwiseAngle(p1 - center) > getClockwiseAngle(p2 - center);
+		else
+			return getClockwiseAngle(p1 - center) < getClockwiseAngle(p2 - center);
+		});
 }
 
-/**
- * @function CannyThreshold
- * @brief Trackbar callback - Canny thresholds input with a ratio 1:3
- */
-static void CannyThreshold(int, void*)
-{
-	//![reduce_noise]
-	/// Reduce noise with a kernel 3x3
-	blur(src_gray, detected_edges, Size(3, 3));
-	//![reduce_noise]
-
-	//![canny]
-	/// Canny detector
-	Canny(detected_edges, detected_edges, lowThreshold, lowThreshold * ratio, kernel_size);
-	//![canny]
-
-	/// Using Canny's output as a mask, we display our result
-	//![fill]
-	dst = Scalar::all(0);
-	//![fill]
-
-	//![copyto]
-	src.copyTo(dst, detected_edges);
-	//![copyto]
-
-	//![display]
-	imshow(window_name, dst);
-	//![display]
-
-	const double hough_rho = 1.0;
-	const double hough_theta = PI / 180.0;
-	const int hough_threshold = 100;
-	const int hough_minLineLength = 100;
-	const int hough_maxLineGap = 80;
-
-	Mat edges = detected_edges;
-	std::vector<Vec4i> lines;
-	//Mat result = src.clone();
-	Mat result = Mat::zeros(edges.size(), edges.type());
-
-	//Mat binary = edges > 125;  // Convert to binary image
-
-	// Combine similar lines
-	int size = 3;
-	Mat element = getStructuringElement(MORPH_ELLIPSE, Size(2 * size + 1, 2 * size + 1), Point(size, size));
-	morphologyEx(edges, edges, MORPH_CLOSE, element);
-
-	imshow("closed edges", edges);
-
-
-	HoughLinesP(edges, lines, hough_rho, hough_theta, hough_threshold, hough_minLineLength, hough_maxLineGap);
-
-	//std::vector<int> labels;
-	//int numberOfLines = partition(lines, labels, isEqual);
-
-
-	//for (int i = 0; i < lines.rows; i++) {
-	//	for (int j = 0; j < lines.cols; j++) {
-	//		const Vec4i& lin = lines.at<Vec4i>(i, j);
-
-	//		line(result, Point(lin[0], lin[1]), Point(lin[2], lin[3]), genRandomBGRColor(), 3, LINE_AA);
-
-	//	}
-	//}
-
-	for (const auto& lin : lines) {
-		line(result, Point(lin[0], lin[1]), Point(lin[2], lin[3]), genRandomBGRColor(), 3, LINE_AA);
-	}
-
-	std::cout << lines.size() << "\n";
-
-	size = 15;
-	Mat eroded;
-	cv::Mat erodeElement = getStructuringElement(MORPH_ELLIPSE, cv::Size(size, size));
-	erode(result, result, erodeElement);
-
-	imshow("result", result);
+void perspectiveTransformRectangle(cv::Rect2f rect, std::vector<Point2f>& points, cv::InputArray perspective) {
+	perspectiveTransform(rectangleToPoints(rect), points, perspective);
 }
 
-// Finds the intersection of two lines, or returns false.
-// The lines are defined by (o1, p1) and (o2, p2).
-bool intersection(Point2f o1, Point2f p1, Point2f o2, Point2f p2,
-	Point2f& r)
-{
-	Point2f x = o2 - o1;
-	Point2f d1 = p1 - o1;
-	Point2f d2 = p2 - o2;
-
-	float cross = d1.x * d2.y - d1.y * d2.x;
-	if (abs(cross) < /*EPS*/1e-8)
-		return false;
-
-	double t1 = (x.x * d2.y - x.y * d2.x) / cross;
-	r = o1 + d1 * t1;
-	return true;
+template <typename _Tp>
+std::vector<Point2f> toPoint2fVec(std::vector<_Tp> src) {
+	std::vector<Point2f> dst(src.size());
+	std::transform(src.begin(), src.end(), dst.begin(), [](const auto& p) { return p; });
+	return dst;
 }
 
-inline bool isInside(const Size& imgSize, const Point& point) {
-	return 0 <= point.y && point.y < imgSize.height && 0 <= point.x && point.x < imgSize.width;
-}
 
-std::vector<Point2i> findIntersections(const std::vector<Vec4i>& lines, Size imageSize) {
-	std::vector<Point2i> result;
-
-	for (int i = 0; i < lines.size(); i++) {
-		for (int j = 0; j < lines.size(); j++) {
-			if (i == j)
-				continue;
-
-			const Vec4i& line1 = lines[i];
-			const Vec4i& line2 = lines[j];
-
-			Point2i o1 = cv::Point(line1[0], line1[1]);
-			Point2i p1 = cv::Point(line1[2], line1[3]);
-			Point2i o2 = cv::Point(line2[0], line2[1]);
-			Point2i p2 = cv::Point(line2[2], line2[3]);
-			Point2f r;
-
-			double angle = acos((p1 - o1).dot(p2 - o2) / norm(p1 - o1) / norm(p2 - o2));
-
-			if (angle < 0.349066) //20 degrees
-				continue;
-
-			if (intersection(o1, p1, o2, p2, r) && isInside(imageSize, r)) {
-				result.push_back(r);
-			}		
-		}
-	}
-
-	return result;
-}
-
-bool isCloseToOtherPoints(const Point2i& point, const std::vector<Point2i>& points, int thresholdDistance) {
-	for (const auto& point2 : points) {
-		if (norm(point - point2) < thresholdDistance) {
-			return true;
-		}
-	}
-	return false;
-}
-
-void filterClosePoints(std::vector<Point2i>& points, int thresholdDistance) {
-	std::vector<Point2i> savedPoints;
-
-	for (const auto& point : points) {
-		if (!isCloseToOtherPoints(point, savedPoints, thresholdDistance)) {
-			savedPoints.push_back(point);
-		}
-	}
-
-	points = std::move(savedPoints);
-}
-
-void reprojectImage(const Mat& src, Mat& dst, const std::vector<Point2i>& corners, Size imageSize) {
-	static const std::vector<Point2i> dst_points = {
-		{0, 0},
-		{imageSize.width - 1, 0},
-		{imageSize.width - 1, imageSize.height - 1},
-		{0, imageSize.height - 1}
-	};
-
-	Mat homography = findHomography(corners, dst_points);
-	warpPerspective(src, dst, homography, imageSize);
-}
-
-void reprojectPoints(const std::vector<Point2f>& src, std::vector<Point2f>& dst, const std::vector<Point2f>& corners, Size imageSize) {
-	static const std::vector<Point2f> dst_points = {
-		{0, 0},
-		{imageSize.width - 1.0f, 0},
-		{imageSize.width - 1.0f, imageSize.height - 1.0f},
-		{0, imageSize.height - 1.0f}
-	};
-
-	Mat pers = getPerspectiveTransform(corners, dst_points);
-	perspectiveTransform(src, dst, pers);
-}
-
-// 4 points of a retangle
-void getFourCorners(const std::vector<Point2f>& corners, Point2i& topLeft, Point2i& bottomLeft, Point2i& topRight, Point2i& bottomRight) {
-	topLeft = bottomLeft = topRight = bottomRight = corners[0];
-
-	for (int i = 1; i < corners.size(); i++) {
-		const Point2i& p = corners[i];
-
-		if (p.x <= topLeft.x && p.y <= topLeft.y) {
-			topLeft = p;
-		}
-
-		if (p.x <= bottomLeft.x && p.y >= bottomLeft.y) {
-			bottomLeft = p;
-		}
-
-		if (p.x >= topRight.x && p.y <= topRight.y) {
-			topRight = p;
-		}
-
-		if (p.x >= bottomRight.x && p.y >= bottomRight.y) {
-			bottomRight = p;
-		}
-	}
-}
-
-bool isLineInsidePolygon(const std::vector<Point>& polygon, Vec4i line, Size imageSize) {
-	Point2f a = Point2f(line[0], line[1]);
-	Point2f b = Point2f(line[2], line[3]);
-	/*Point2f vec = b - a;
-	double l = norm(vec);
-	vec /= l;
-
-
-	Point2f t = -a;
-	double angle = -acos(vec.dot(Point2f(1.0f, 0.0f)));
-	double cos_a = cos(angle);
-	double sin_a = sin(angle);
-
-	int nrint = 0;
-
-	for (int i = 0; i < polygon.size(); i++) {
-		int next = (i + 1) % polygon.size();
-
-		Point2f p1 = polygon[i];
-		p1 += t;
-		p1 = Point2f(
-			cos_a * p1.x - sin_a * p1.y,
-			sin_a * p1.x + cos_a * p1.y
-		);
-
-
-		Point2f p2 = polygon[next];
-		p2 += t;
-		p2 = Point2f(
-			cos_a * p2.x - sin_a * p2.y,
-			sin_a * p2.x + cos_a * p2.y
-		);
-
-		if (p1.y == 0 || (p1.y > 0) == (p2.y > 0)) {
-			continue;
-		}
-
-		double intX = (0.0f - p1.y) / (p2.y - p1.y) * (p2.x - p1.x);
-
-		if (0 < intX && intX < l)
-			return false;
-
-		if(intX < 0)
-			nrint++;
-	}
-
-
-	return nrint % 2 == 1;*/
-
-	//return pointPolygonTest(polygon, a, false) >= 0 || pointPolygonTest(polygon, b, false) >= 0;
-
-	Mat lineFrame = Mat(imageSize, CV_8UC1);
-	cv::line(lineFrame, a, b, 255, 4);
-
-	//Mat contourFrame = Mat(imageSize, CV_8UC1);
-	//drawContours(contourFrame, polygon, )
-	return false;
-}
-
-int hough_threshold = 90;
-
-static void CannyThreshold2(int, void*)
-{
-	const double hough_rho = 1.0;
-	const double hough_theta = PI / 180.0;
-	//const int hough_threshold = 200;
-	const int hough_minLineLength = 100;
-	const int hough_maxLineGap = 80;
-
-
-	blur(src_gray, detected_edges, Size(3, 3));
-	Canny(detected_edges, detected_edges, lowThreshold, lowThreshold * ratio, kernel_size);
-	imshow("Canny edge detection", detected_edges);
-	imwrite("Canny edge detection.png", detected_edges);
-
-	std::vector<std::vector<Point2i>> contours;
-
-	findContours(detected_edges, contours, RETR_EXTERNAL, CHAIN_APPROX_TC89_L1);
-	int largest_contour_index = -1;
-	double largest_area = 0;
-	Rect bounding_rect;
-
-	for (int i = 0; i < contours.size(); i++) // iterate through each contour. 
-	{
-		double a = contourArea(contours[i], false);  //  Find the area of contour
-		if (a > largest_area) {
-			largest_area = a;
-			largest_contour_index = i;                //Store the index of largest contour
-			bounding_rect = boundingRect(contours[i]); // Find the bounding rectangle for biggest contour
-		}
-
-	}
-
-	contours = std::vector<std::vector<Point2i>>(1, contours[largest_contour_index]);
-	Mat imgWithContours = src.clone();
-	drawContours(imgWithContours, contours, -1, Vec3b(0, 0, 255), 1, 8);
-	rectangle(imgWithContours, bounding_rect, Scalar(0, 255, 0), 1, 8, 0);
-	imshow("imgWithContours", imgWithContours);
-	imwrite("imgWithContours.png", imgWithContours);
-
-	/*Mat contourIm = src_gray.clone();
-	contourIm.setTo(0);
-	drawContours(contourIm, contours, -1, 255, 1, 8);
-	std::vector<Vec2f> contourLines;
-	HoughLines(contourIm, contourLines, hough_rho, hough_theta, 100);
-
-	if (contourLines.size() < 4) {
-		std::cerr << "contour lines were not found";
-		exit(1);
-	}
-
-	contourLines.resize(4);
-
-	imgWithContours = src.clone();
-
-	for (size_t i = 0; i < contourLines.size(); i++)
-	{
-		float rho = contourLines[i][0], theta = contourLines[i][1];
-		Point pt1, pt2;
-		double a = cos(theta), b = sin(theta);
-		double x0 = a * rho, y0 = b * rho;
-		pt1.x = cvRound(x0 + 1000 * (-b));
-		pt1.y = cvRound(y0 + 1000 * (a));
-		pt2.x = cvRound(x0 - 1000 * (-b));
-		pt2.y = cvRound(y0 - 1000 * (a));
-		line(imgWithContours, pt1, pt2, Scalar(0, 0, 255), 3);
-	}
-
-	imshow("contour lines", imgWithContours);*/
-
-
-
-	//std::vector<Point2i> contour_hull;
-	//convexHull(contours[0], contour_hull);
-	//contours = std::vector<std::vector<Point2i>>(1, contour_hull);
-
-	//imgWithContours = src.clone();
-	//drawContours(imgWithContours, contours, -1, Vec3b(0, 0, 255), 1, 8);
-	//rectangle(imgWithContours, bounding_rect, Scalar(0, 255, 0), 1, 8, 0);
-	//imshow("Contour convex hull", imgWithContours);
-
-
-	int bias = 7;
-	bounding_rect.x = max(0, bounding_rect.x - bias);
-	bounding_rect.y = max(0, bounding_rect.y - bias);
-	bounding_rect.width = min(bounding_rect.width + bias, src.cols - 1 - bounding_rect.x);
-	bounding_rect.height = min(bounding_rect.height + bias, src.cols - 1 - bounding_rect.y);
-
-	//src = src(bounding_rect);
-	//src_gray = src_gray(bounding_rect);
-
-
-
-
-	Mat image = src;
-	Mat smallerImage = src;
-	Mat target = smallerImage.clone();
-
-	namedWindow("Detected Lines", WINDOW_NORMAL);
-	namedWindow("Reduced Lines", WINDOW_NORMAL);
-	//Mat detectedLinesImg = Mat::zeros(target.rows, target.cols, CV_8UC3);
-	Mat detectedLinesImg = src.clone();
-	Mat reducedLinesImg = detectedLinesImg.clone();
-
-	Mat detectedLinesImgLines = Mat::zeros(target.rows, target.cols, CV_8UC3);
-	Mat reducedLinesImgLines = detectedLinesImgLines.clone();
-
-	// delect lines in any reasonable way
-	Mat grayscale; cvtColor(target, grayscale, COLOR_BGR2GRAY);
-	//Ptr<ximgproc::FastLineDetector> detector = createLineSegmentDetector(LSD_REFINE_NONE);
-	std::vector<Vec4i> lines; 
-	//detector->detect(grayscale, lines);
-
-	//blur(src_gray, detected_edges, Size(3, 3));
-	//Canny(detected_edges, detected_edges, lowThreshold, lowThreshold * ratio, kernel_size);
-	//imshow(window_name, detected_edges);
-
-
-
-
-
-	HoughLinesP(detected_edges, lines, hough_rho, hough_theta, hough_threshold, hough_minLineLength, hough_maxLineGap);
+Margin calcOptimalMargin(const std::vector<Point2f>& corners, const std::vector<Point2f>& contour, cv::Size imageSize) {
+	const float bias = 10;
+	std::vector<Point2f> contour_r;
 	
+	Mat perspective = getPerspectiveTransform(corners, createCorners(imageSize));
+	perspectiveTransform(contour, contour_r, perspective);
 
+	Rect2f contourBB = boundingRect(contour_r);
+	std::vector<Point2f> contourBBPoints = rectangleToPoints(contourBB);
 
+	float minX = contourBBPoints[0].x;
+	float maxX = contourBBPoints[0].x;
+	float minY = contourBBPoints[0].y;
+	float maxY = contourBBPoints[0].y;
 
-	// remove small lines
-	std::vector<Vec4i> linesWithoutSmall;
-	std::copy_if(lines.begin(), lines.end(), std::back_inserter(linesWithoutSmall), [](Vec4f line) {
-		float length = sqrtf((line[2] - line[0]) * (line[2] - line[0])
-			+ (line[3] - line[1]) * (line[3] - line[1]));
-		return length > 30;
-		});
-
-	std::cout << "Detected: " << linesWithoutSmall.size() << std::endl;
-
-	// partition via our partitioning function
-	std::vector<int> labels;
-	int equilavenceClassesCount = cv::partition(linesWithoutSmall, labels, [](const Vec4i l1, const Vec4i l2) {
-		return extendedBoundingRectangleLineEquivalence(
-			l1, l2,
-			// line extension length - as fraction of original line width
-			0.2,
-			// maximum allowed angle difference for lines to be considered in same equivalence class
-			2.0,
-			// thickness of bounding rectangle around each line
-			10);
-		});
-
-	std::cout << "Equivalence classes: " << equilavenceClassesCount << std::endl;
-
-	// grab a random colour for each equivalence class
-	RNG rng(215526);
-	std::vector<Scalar> colors(equilavenceClassesCount);
-	for (int i = 0; i < equilavenceClassesCount; i++) {
-		colors[i] = Scalar(rng.uniform(30, 255), rng.uniform(30, 255), rng.uniform(30, 255));;
+	for (const auto& point : contourBBPoints) {
+		minX = min(minX, contourBBPoints[0].x);
+		maxX = max(maxX, contourBBPoints[0].x);
+		minY = min(minY, contourBBPoints[0].y);
+		maxY = max(maxY, contourBBPoints[0].y);
 	}
 
-	// draw original detected lines
-	for (int i = 0; i < linesWithoutSmall.size(); i++) {
-		Vec4i& detectedLine = linesWithoutSmall[i];
-		line(detectedLinesImg,
-			cv::Point(detectedLine[0], detectedLine[1]),
-			cv::Point(detectedLine[2], detectedLine[3]), colors[labels[i]], 2);
-		line(detectedLinesImgLines,
-			cv::Point(detectedLine[0], detectedLine[1]),
-			cv::Point(detectedLine[2], detectedLine[3]), colors[labels[i]], 2);
-	}
+	return {
+		abs(min(0, minY)) + bias,
+		max(0, maxY - imageSize.height) + bias,
+		abs(min(0, minX)) + bias,
+		max(0, maxX - imageSize.width) + bias
+	};
+}
 
-	// build point clouds out of each equivalence classes
-	std::vector<std::vector<Point2i>> pointClouds(equilavenceClassesCount);
-	for (int i = 0; i < linesWithoutSmall.size(); i++) {
-		Vec4i& detectedLine = linesWithoutSmall[i];
-		pointClouds[labels[i]].push_back(Point2i(detectedLine[0], detectedLine[1]));
-		pointClouds[labels[i]].push_back(Point2i(detectedLine[2], detectedLine[3]));
-	}
-
-	// fit line to each equivalence class point cloud
-	std::vector<Vec4i> reducedLines = std::accumulate(pointClouds.begin(), pointClouds.end(), std::vector<Vec4i>{}, [](std::vector<Vec4i> target, const std::vector<Point2i>& _pointCloud) {
-		std::vector<Point2i> pointCloud = _pointCloud;
-
-		//lineParams: [vx,vy, x0,y0]: (normalized vector, point on our contour)
-		// (x,y) = (x0,y0) + t*(vx,vy), t -> (-inf; inf)
-		Vec4f lineParams; fitLine(pointCloud, lineParams, DIST_L2, 0, 0.01, 0.01);
-
-		// derive the bounding xs of point cloud
-		decltype(pointCloud)::iterator minXP, maxXP;
-		std::tie(minXP, maxXP) = std::minmax_element(pointCloud.begin(), pointCloud.end(), [](const Point2i& p1, const Point2i& p2) { return p1.x < p2.x; });
-
-		// derive y coords of fitted line
-		float m = lineParams[1] / lineParams[0];
-		int y1 = ((minXP->x - lineParams[2]) * m) + lineParams[3];
-		int y2 = ((maxXP->x - lineParams[2]) * m) + lineParams[3];
-
-		target.push_back(Vec4i(minXP->x, y1, maxXP->x, y2));
-		return target;
-		});
-
-	for (size_t i = 0; i < reducedLines.size(); i++) {
-		const Vec4i& reduced = reducedLines[i];
-		line(reducedLinesImg, Point(reduced[0], reduced[1]), Point(reduced[2], reduced[3]), colors[i], 2);
-		line(reducedLinesImgLines, Point(reduced[0], reduced[1]), Point(reduced[2], reduced[3]), colors[i], 2);
-	}
-
-	imshow("Detected Lines", detectedLinesImg);
-	imwrite("Detected Lines.png", detectedLinesImg);
-	imshow("Reduced Lines", reducedLinesImg);
-	imwrite("Reduced Lines.png", reducedLinesImg);
-	imshow("Detected Lines - lines only", detectedLinesImgLines);
-	imwrite("Detected Lines - lines only.png", detectedLinesImgLines);
-	imshow("Reduced Lines - lines only", reducedLinesImgLines);
-	imwrite("Reduced Lines - lines only.png", reducedLinesImgLines);
-	//waitKey();
-
-	std::cout << "nr reduced lines: " << reducedLines.size() << "\n";
-
-
-	Mat contourFrame = src_gray.clone();
-	contourFrame.setTo(0);
-	drawContours(contourFrame, contours, -1, 255, 1, 8);
-
-	std::vector<Vec4i> clippedLines;
-	for (const auto& line : reducedLines) {
-		//if(isLineInsidePolygon(contours[0], line))
-		Point2f a = Point2f(line[0], line[1]);
-		Point2f b = Point2f(line[2], line[3]);
-
-		Mat lineFrame = Mat(imageSize, CV_8UC1);
-		lineFrame.setTo(0);
-		cv::line(lineFrame, a, b, 255, 4);
-
-		Mat result;
-		bitwise_and(lineFrame, contourFrame, result);
-
-		if(countNonZero(result) > 0)
-			clippedLines.push_back(line);
-	}
-	reducedLines = clippedLines;
-
-	std::cout << "nr filtered lines: " << reducedLines.size() << "\n";
-
-	//reducedLinesImg = Mat::zeros(target.rows, target.cols, CV_8UC3);
-	reducedLinesImg = src.clone();
-	for (size_t i = 0; i < reducedLines.size(); i++) {
-		const Vec4i& reduced = reducedLines[i];
-		line(reducedLinesImg, Point(reduced[0], reduced[1]), Point(reduced[2], reduced[3]), colors[i], 2);
-	}
-	imshow("Reduced Lines filtered", reducedLinesImg);
-	imwrite("Reduced Lines filtered.png", reducedLinesImg);
-
-	//waitKey();
-
-
-	std::vector<Point2i> intersections = findIntersections(reducedLines, src.size());
-	std::cout << "nr_intersections: " << intersections.size();
-
-	//auto mnmx = std::minmax_element(intersections.begin(), intersections.end(), [](const auto& a, const auto& b) {
-	//	return a.x < b.x || (a.x == b.x && a.y < b.y);
-	//	});
-
-	//const int thresholdPointDist = (mnmx.second->x - mnmx.first->x) / 11;
-	const int thresholdPointDist = 20;
-	filterClosePoints(intersections, thresholdPointDist);
-
-	std::cout << " reduced to: " << intersections.size() << "\n";
-
-	Mat imgWithIntersections = src.clone();
-	for (const auto& inter : intersections) {
-		circle(imgWithIntersections, inter, 5, Vec3b(0, 0, 255), -1);
-	}
-
-	imshow("Intersection points", imgWithIntersections);
-	imwrite("Intersection points.png", imgWithIntersections);
-
-	Point2i center = Point2i(src.cols / 2, src.rows / 2);
-
-
-
-
-	std::vector<Point2i> convex_hull;
-	convexHull(intersections, convex_hull);
-
-	Mat imgWithConvexHull = src.clone();
-	for (const auto& inter : convex_hull) {
-		circle(imgWithConvexHull, inter, 5, Vec3b(0, 0, 255), -1);
-	}
-	imshow("Convex hull of intersection points", imgWithConvexHull);
-	imwrite("Convex hull of intersection points.png", imgWithConvexHull);
-
-
-
-
-
-	if (convex_hull.size() < 4) {
-		std::cerr << "the 4 corners were not found";
-		exit(1);
-	}
-
-	while (convex_hull.size() > 4) {
-		const size_t size = convex_hull.size();
-		size_t remove_i = -1;
-		double min_dist = 0;
-		
-		for (size_t curr_i = 0; curr_i < size; curr_i++) {
-
-			size_t prev_i = (curr_i - 1 + size) % size;
-			size_t next_i = (curr_i + 1) % size;
-
-			Point2i a = convex_hull[prev_i];
-			Point2i b = convex_hull[next_i];
-			Point2i p = convex_hull[curr_i];
-
-			double ab_len = norm(b - a);
-			double dist_p_ab = norm((b - a).cross(a - p)) / norm(b - a);
-
-			if (curr_i == 0 || dist_p_ab < min_dist) {
-				min_dist = dist_p_ab;
-				remove_i = curr_i;
-			}
-		}
-		convex_hull.erase(convex_hull.begin() + remove_i);
-	}
-
-	Mat imgWithIntCorners = src.clone();
-	for (const auto& inter : convex_hull) {
-		circle(imgWithIntCorners, inter, 5, Vec3b(0, 0, 255), -1);
-	}
-
-	imshow("Intersection corners", imgWithIntCorners);
-	imwrite("Intersection corners.png", imgWithIntCorners);
-
-
-	std::vector<Point2f> corners;
-	for (const auto& inter : convex_hull) {
-		corners.push_back(inter);
-	}
-
-	Mat reprojected;
-	std::vector<Point2f> reprojectedCorners;
-	reprojectImage(src, reprojected, convex_hull, imageSize);
-
+std::vector<Point2f> computeLatticePoints(Point2f topLeft, Point2f bottomLeft, Point2f bottomRight, Point2f topRight) {
+	std::vector<Point2f> lattice;
+	lattice.reserve(9 * 9);
 	
-	Mat reprojectedWith4Corners = reprojected.clone();
-	reprojectPoints(corners, reprojectedCorners, corners, imageSize);
-	for (const auto& corner : reprojectedCorners) {
-		circle(reprojectedWith4Corners, corner, 5, Vec3b(0, 0, 255), -1);
-	}
+	const float dx = (topRight.x - topLeft.x) / 8.0f;
+	const float dy = (bottomLeft.y - topLeft.y) / 8.0f;
 
-	imshow("Reprojected image with four corners", reprojectedWith4Corners);
-	imwrite("Reprojected image with four corners.png", reprojectedWith4Corners);
-
-
-
-	Point2i topLeft, bottomLeft, topRight, bottomRight;
-	getFourCorners(reprojectedCorners, topLeft, bottomLeft, topRight, bottomRight);
-
-	float dx = (topRight.x - topLeft.x) / 8.0f;
-	float dy = (bottomLeft.y - topLeft.y) / 8.0f;
-
-
-	std::vector<Point2f> allReprCorners;
 	for (int i = 0; i <= 8; i++) {
 		for (int j = 0; j <= 8; j++) {
-			allReprCorners.push_back(topLeft + Point2i(j * dx, i * dy));
+			lattice.push_back(topLeft + Point2f(j * dx, i * dy));
 		}
 	}
 
-	//std::vector<Point2f> allReprCorners;
-	//std::vector<Point2f> intersectionsf;
-	//for (const auto& inter : intersections) {
-	//	intersectionsf.push_back(inter);
-	//}
-
-	//reprojectPoints(intersectionsf, allReprCorners, corners, imageSize);
-
-
-	Mat reprojectedWithAllCorners = reprojected.clone();
-	for (const auto& corner : allReprCorners) {
-		circle(reprojectedWithAllCorners, corner, 5, Vec3b(0, 0, 255), -1);
-	}
-	imshow("Reprojected image with all corners", reprojectedWithAllCorners);
-	imwrite("Reprojected image with all corners.png", reprojectedWithAllCorners);
-
+	return lattice;
 }
-
-
 
 void testChessboardDetection() {
 
-	const double canny_threshold1 = 50;
-	const double canny_threshold2 = 150;
-	const int canny_appertureSize = 3;
+	/* Images */
+	Mat src; // source image
+	Mat src_gray; // source image converted to grayscale
+	Mat detected_edges; // binary image containing the edges of the image
+	Mat img_r; // reprojection of the source image
+	Mat dst;
 
-	const double hough_rho = 1.0;
-	const double hough_theta = PI / 180.0;
-	//const int hough_threshold = 100;
-	const int hough_minLineLength = 100;
-	const int hough_maxLineGap = 80;
+	/* Matrices */
+	Mat homography; // image wrapping
+	Mat perspective; // perspective matrix - point transformation
+
+	/* Variables */
+	std::vector<Point2i> contour; // contour of the chessboard grid
+	std::vector<Point2f> contour_r; // reprojected contour of the chessboard grid
+	std::vector<Vec4i> lines; // lines of the chessboard
+	std::vector<Point2f> intersections; // intersections of the chessboard lines
+	std::vector<Point2f> corners; // corners of the chessboard grid
+	std::vector<Point2f> lattice; // corners of the chessboard grid
 
 	char fname[MAX_PATH];
 	while (openFileDlg(fname))
 	{
-		Mat img = imread(fname, IMREAD_COLOR);
-		Mat resized;
-		resize(img, resized, imageSize);
-		Mat result = resized.clone();
+		// 1. Read image, resize
+		src = imread(fname, IMREAD_COLOR);
+		resize(src, src, imageSize);
+		show_image("source image", src);
 
-		imshow("input image", resized);
+		// 2. Convert source image to grayscale
+		cvtColor(src, src_gray, COLOR_BGR2GRAY);
+		show_image("source image - gray", src_gray);
 
-		src = resized.clone();
+		// 3. Detect edges
+		detectEdges(src_gray, detected_edges);
+		show_image("detected edges", detected_edges);
 
-		Mat imgGray;
-		cvtColor(resized, imgGray, COLOR_BGR2GRAY);
-		src_gray = imgGray.clone();
+		// 4. Contour detection
+		findLargestContour(detected_edges, contour);
+		show_contour("contour", src, contour);
 
-		imshow("image", imgGray);
-		imwrite("image-gray.png", imgGray);
+		// 5. Line detection
+		detectLines(detected_edges, lines);
+		std::cout << "Number of detected lines: " << lines.size() << std::endl;
+		show_lines("detected lines", src, lines);
+		show_lines("detected lines - lines only", Mat::zeros(src.size(), src.type()), lines);
 
-		namedWindow(window_name, WINDOW_AUTOSIZE);
+		// 5.1 Reduce the number of lines
+		reduceLines(lines);
+		std::cout << "Reduced number of lines: " << lines.size() << std::endl;
+		show_lines("reduced lines", src, lines);
+		show_lines("reduced lines - lines only", Mat::zeros(src.size(), src.type()), lines);
 
-		//![create_trackbar]
-/// Create a Trackbar for user to enter threshold
-		//createTrackbar("Min Threshold:", window_name, &lowThreshold, max_lowThreshold, CannyThreshold2);
-		createTrackbar("Hough Threshold:", window_name, &hough_threshold, 500, CannyThreshold2);
-		//![create_trackbar]
-
-		/// Show the image
-		CannyThreshold2(0, 0);
-
-		/// Wait until user exit program by pressing a key
-		waitKey(0);
-
-		/*Mat edges;
-		blur(imgGray, edges, Size(3, 3));
-		Canny(edges, edges, canny_threshold1, canny_threshold2, canny_appertureSize);
-
-		imshow("edges", edges);
-
-		Mat lines;
-		HoughLinesP(edges, lines, hough_rho, hough_theta, hough_threshold, hough_minLineLength, hough_maxLineGap);
-
-		for (int i = 0; i < lines.rows; i++) {
-			for (int j = 0; j < lines.cols; j++) {
-				const Vec4i& lin = lines.at<Vec4i>(i, j);
-
-				line(result, Point(lin[0], lin[1]), Point(lin[2], lin[3]), Vec3b(0, 0, 255), 3, LINE_AA);
-
-			}
-		}
-
-		imshow("result", result);*/
-
-		//imshow("lines", lines);
+		// 5.2 Discard the lines that are entirely outside of the contour
+		discardExternalLines(contour, lines, src.size());
+		std::cout << "Number of filtered lines: " << lines.size() << std::endl;
+		show_lines("filtered lines", src, lines);
+		show_lines("filtered lines - lines only", Mat::zeros(src.size(), src.type()), lines);
 
 
-	/*	adjustBrightness(imgGray);
+		// 6. Finding the intersection points of the chessboard lines
+		intersections = findIntersections(lines, src.size());
+		std::cout << "Number of intersections: " << intersections.size() << std::endl;
+		show_points("intersection points", src, intersections);
 
-		imshow("image2", imgGray);
+		// 7. finding the four corners of the chessboard grid
+		// 7.1 Finding the convex hull
+		convexHull(intersections, corners);
+		std::cout << "Number of elements in the convex hull: " << corners.size() << std::endl;
+		show_points("convex hull", src, corners);
 
-		std::vector<Point2f> corners;
-
-		bool found = detectCorners(imgGray, boardSize, winSize, corners);
-
-		waitKey();
-
-		if (!found) {
-			std::cerr << "Corners were not found\n";
+		if (corners.size() < 4) {
+			std::cerr << "the 4 corners were not found";
 			exit(1);
 		}
 
-		drawChessboardCorners(imgGray, boardSize, Mat(corners), found);*/
+		// 7.2 Reduce the convex hull to the four corners
+		reduceConvexHull(corners, 4);
+		assert(corners.size() == 4);
 
-	
-		//imwrite("result.png", imgGray);
+		// 7.3 Sort the corners in counterclockwise order. 
+		sortPoints(corners, false);  //The bottom - right corner is at the front.
+
+		// 7.3.1 Rotate the corners in order to put the top-right corner to the front
+		// this way the board will be oriented such that the H1 cell will be in the bottom-right.
+		std::rotate(corners.begin(), corners.begin() + 1, corners.end());
+		show_points("Corners", src, corners);
+		print_points("Corners", corners);
+
+
+		// 8. Reprojection
+		// 8.1 Compute the optimal margin
+		// computes a margin such that all pieces are completely inside the image
+		// purpose:
+		//	- visualization
+		//	- needed if the pieces are cropped separately (not used)
+		Margin margin = calcOptimalMargin(corners, toPoint2fVec(contour), src.size());
+
+		// 8.2 Compute transformation matrices
+		calcProjectionParams(corners, homography, perspective, src.size(), margin);
+
+		// 8.3. Reproject image
+		warpPerspective(src, img_r, homography, src.size());
+		show_image("reprojected", img_r);
+
+		// 8.4 Reproject corner points
+		perspectiveTransform(corners, corners, perspective);
+		show_points("Reprojected image with four corners", img_r, corners);
+
+		// 8.5 Reproject contour points
+		perspectiveTransform(toPoint2fVec(contour), contour_r, perspective);
+		// display bounding rectangle of the contour
+		show_boundingBox("Reprojected image with contour bounding box", img_r, boundingRect(contour_r));
+
+
+		// 9. Compute lattice points
+		lattice = computeLatticePoints(corners[0], corners[1], corners[2], corners[3]);
+		show_points("Reprojected image with all lattice points", img_r, lattice);
 
 		waitKey();
 	}
 }
 
+
 int main()
 {
-	Menu menu({
-		{"Corner detection", testCornerDetection},
-		{"Print the paths of the calibration images", printCalibrationImagePaths},
-		{"Camera calibration", testCameraCalibration},
-		{"Chessboard detection", testChessboardDetection}
-		});
+	//Menu menu({
+	//	{"Corner detection", testCornerDetection},
+	//	{"Print the paths of the calibration images", printCalibrationImagePaths},
+	//	{"Camera calibration", testCameraCalibration},
+	//	{"Chessboard detection", testChessboardDetection}
+	//	});
 
-	menu.show(std::cin, std::cout);
+	//menu.show(std::cin, std::cout);
+	testChessboardDetection();
 	return 0;
 }
