@@ -13,6 +13,7 @@
 #include "colors.h"
 #include "calibration.h"
 #include "chessboard.h"
+#include "visualization.h"
 
 using namespace cv;
 
@@ -698,16 +699,58 @@ void testChessboardDetection() {
 }
 
 
+void testVisualizeChessboard() {
+	std::vector<std::pair<Piece, Point2i>> pieces{
+		{Piece::WhiteRook, C_A1},
+		{Piece::WhiteKnight, C_B1},
+		{Piece::WhiteBishop, C_C1},
+		{Piece::WhiteQueen, C_D1},
+		{Piece::WhiteKing, C_E1},
+		{Piece::WhiteBishop, C_F1},
+		{Piece::WhiteKnight, C_G1},
+		{Piece::WhiteRook, C_H1},
+		{Piece::WhitePawn, C_A2},
+		{Piece::WhitePawn, C_B2},
+		{Piece::WhitePawn, C_C2},
+		{Piece::WhitePawn, C_D2},
+		{Piece::WhitePawn, C_E4},
+		{Piece::WhitePawn, C_F2},
+		{Piece::WhitePawn, C_G2},
+		{Piece::WhitePawn, C_H2},
+		{Piece::BlackRook, C_A8},
+		{Piece::BlackKnight, C_B8},
+		{Piece::BlackBishop, C_C8},
+		{Piece::BlackQueen, C_D8},
+		{Piece::BlackKing, C_E8},
+		{Piece::BlackBishop, C_F8},
+		{Piece::BlackKnight, C_G8},
+		{Piece::BlackRook, C_H8},
+		{Piece::BlackPawn, C_A7},
+		{Piece::BlackPawn, C_B7},
+		{Piece::BlackPawn, C_C7},
+		{Piece::BlackPawn, C_D7},
+		{Piece::BlackPawn, C_E5},
+		{Piece::BlackPawn, C_F7},
+		{Piece::BlackPawn, C_G7},
+		{Piece::BlackPawn, C_H7},
+	};
+
+	Mat dst = getDigitalChessboard(pieces);
+	show_image("Chessboard", dst);
+
+	waitKey(0);
+}
+
 int main()
 {
-	//Menu menu({
-	//	{"Corner detection", testCornerDetection},
-	//	{"Print the paths of the calibration images", printCalibrationImagePaths},
-	//	{"Camera calibration", testCameraCalibration},
-	//	{"Chessboard detection", testChessboardDetection}
-	//	});
+	Menu menu({
+		{"Corner detection", testCornerDetection},
+		{"Print the paths of the calibration images", printCalibrationImagePaths},
+		{"Camera calibration", testCameraCalibration},
+		{"Chessboard detection", testChessboardDetection},
+		{"Chessboard visualization", testVisualizeChessboard}
+		});
 
-	//menu.show(std::cin, std::cout);
-	testChessboardDetection();
+	menu.show(std::cin, std::cout);
 	return 0;
 }

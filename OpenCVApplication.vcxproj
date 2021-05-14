@@ -104,6 +104,7 @@
     <ClInclude Include="config.h" />
     <ClInclude Include="Menu.h" />
     <ClInclude Include="util.h" />
+    <ClInclude Include="visualization.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="calibration.cpp" />
@@ -113,6 +114,7 @@
     <ClCompile Include="Menu.cpp" />
     <ClCompile Include="OpenCVApplication.cpp" />
     <ClCompile Include="util.cpp" />
+    <ClCompile Include="visualization.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
