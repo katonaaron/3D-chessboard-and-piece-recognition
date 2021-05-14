@@ -90,6 +90,9 @@ void Model::make_prediction(Tensor& imageTensor, Prediction& pred)
 	auto predicted_scores = outputs[3].tensor<float, 2>();
 
 	pred.num_detections = static_cast<int>(predicted_num_detections(0));
+	pred.boxes.clear();
+	pred.classes.clear();
+	pred.scores.clear();
 
 	for (int i = 0; i < pred.num_detections; i++) {
 		std::vector<float> coords;

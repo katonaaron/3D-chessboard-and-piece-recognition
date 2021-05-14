@@ -102,13 +102,29 @@ std::vector<Point2f> rectangleToPoints(cv::Rect2f rect) {
 	};
 }
 
-void show_boundingBox(std::string name, const Mat& background_img, const std::vector<Point2f>& boundingBoxPoints) {
+void draw_boundingBox(Mat& img, const std::vector<Point2f>& boundingBoxPoints, cv::Scalar color = Vec3b(0, 255, 0)) {
+	for (size_t i = 0; i < boundingBoxPoints.size(); i++) {
+		size_t j = (i + 1) % boundingBoxPoints.size();
+		line(img, boundingBoxPoints[i], boundingBoxPoints[j], color);
+	}
+}
+
+void show_boundingBox(std::string name, const Mat& background_img, const std::vector<Point2f>& boundingBoxPoints, bool drawPoints = true, cv::Scalar color = Vec3b(0, 255, 0)) {
 	Mat img = background_img.clone();
 
-	draw_points(img, boundingBoxPoints);
-	for (int i = 0; i < boundingBoxPoints.size(); i++) {
-		int j = (i + 1) % boundingBoxPoints.size();
-		line(img, boundingBoxPoints[i], boundingBoxPoints[j], Vec3b(0, 255, 0));
+	if(drawPoints)
+		draw_points(img, boundingBoxPoints);
+	draw_boundingBox(img, boundingBoxPoints);
+	show_image(name, img);
+}
+
+void show_boundingBoxes(std::string name, const Mat& background_img, const std::vector<std::vector<Point2f>>& boundingBoxes, bool drawPoints = true, cv::Scalar color = Vec3b(0, 255, 0)) {
+	Mat img = background_img.clone();
+
+	for (const auto& bbox : boundingBoxes) {
+		if (drawPoints)
+			draw_points(img, bbox);
+		draw_boundingBox(img, bbox);
 	}
 
 	show_image(name, img);
@@ -156,9 +172,7 @@ Piece classToPiece(int label) {
 	}
 }
 
-void print_prediction(const Prediction& pred, float thresholdScore = 0.0f) {
-	std::cout << "num_detections: " << pred.num_detections << "\n";
-
+void print_predictions(const Prediction& pred, float thresholdScore = 0.0f) {
 	for (int i = 0; i < pred.num_detections; i++) {
 		if (pred.scores[i] < thresholdScore)
 			continue;
@@ -172,6 +186,14 @@ void print_prediction(const Prediction& pred, float thresholdScore = 0.0f) {
 		std::cout << "\n";
 	}
 
+}
+
+void print_prediction_statistics(const Prediction& pred) {
+	std::cout << "num_detections: " << pred.num_detections << "\n";
+	std::cout << "score statistics:\n";
+	std::cout << "\tmin: " << *std::min_element(pred.scores.begin(), pred.scores.end()) << "\n";
+	std::cout << "\tmean: " << accumulate(pred.scores.begin(), pred.scores.end(), 0.0) / pred.scores.size() << "\n";
+	std::cout << "\tmax: " << *std::max_element(pred.scores.begin(), pred.scores.end()) << "\n";
 }
 
 void testCameraCalibration(Mat cameraMatrix, const Mat& distCoeffs)
@@ -322,210 +344,6 @@ void printCalibrationImagePaths() {
 	waitForKey();
 }
 
-//void adjustBrightness(Mat& img) {
-//	Mat kernel = getStructuringElement(MORPH_ELLIPSE, Size(11, 11));
-//	Mat closed;
-//	morphologyEx(img, closed, MORPH_CLOSE, kernel);
-//	Mat floatMat;
-//	img.convertTo(floatMat, CV_32FC1);
-//	floatMat /= closed;
-//	normalize(floatMat, floatMat, 0, 255, NORM_MINMAX);
-//	floatMat.convertTo(img, img.type());
-//}
-//
-
-//
-//
-//
-//bool isEqual(const Vec4i& _l1, const Vec4i& _l2)
-//{
-//	Vec4i l1(_l1), l2(_l2);
-//
-//	float length1 = sqrtf((l1[2] - l1[0]) * (l1[2] - l1[0]) + (l1[3] - l1[1]) * (l1[3] - l1[1]));
-//	float length2 = sqrtf((l2[2] - l2[0]) * (l2[2] - l2[0]) + (l2[3] - l2[1]) * (l2[3] - l2[1]));
-//
-//	float product = (l1[2] - l1[0]) * (l2[2] - l2[0]) + (l1[3] - l1[1]) * (l2[3] - l2[1]);
-//
-//	if (fabs(product / (length1 * length2)) < cos(CV_PI / 30))
-//		return false;
-//
-//	float mx1 = (l1[0] + l1[2]) * 0.5f;
-//	float mx2 = (l2[0] + l2[2]) * 0.5f;
-//
-//	float my1 = (l1[1] + l1[3]) * 0.5f;
-//	float my2 = (l2[1] + l2[3]) * 0.5f;
-//	float dist = sqrtf((mx1 - mx2) * (mx1 - mx2) + (my1 - my2) * (my1 - my2));
-//
-//	if (dist > max(length1, length2) * 0.5f)
-//		return false;
-//
-//	return true;
-//}
-//
-
-
-//
-//// 4 points of a retangle
-//void getFourCorners(const std::vector<Point2f>& corners, Point2i& topLeft, Point2i& bottomLeft, Point2i& topRight, Point2i& bottomRight) {
-//	topLeft = bottomLeft = topRight = bottomRight = corners[0];
-//
-//	for (int i = 1; i < corners.size(); i++) {
-//		const Point2i& p = corners[i];
-//
-//		if (p.x <= topLeft.x && p.y <= topLeft.y) {
-//			topLeft = p;
-//		}
-//
-//		if (p.x <= bottomLeft.x && p.y >= bottomLeft.y) {
-//			bottomLeft = p;
-//		}
-//
-//		if (p.x >= topRight.x && p.y <= topRight.y) {
-//			topRight = p;
-//		}
-//
-//		if (p.x >= bottomRight.x && p.y >= bottomRight.y) {
-//			bottomRight = p;
-//		}
-//	}
-//}
-//
-//bool isLineInsidePolygon(const std::vector<Point>& polygon, Vec4i line, Size imageSize) {
-//	Point2f a = Point2f(line[0], line[1]);
-//	Point2f b = Point2f(line[2], line[3]);
-//	/*Point2f vec = b - a;
-//	double l = norm(vec);
-//	vec /= l;
-//
-//
-//	Point2f t = -a;
-//	double angle = -acos(vec.dot(Point2f(1.0f, 0.0f)));
-//	double cos_a = cos(angle);
-//	double sin_a = sin(angle);
-//
-//	int nrint = 0;
-//
-//	for (int i = 0; i < polygon.size(); i++) {
-//		int next = (i + 1) % polygon.size();
-//
-//		Point2f p1 = polygon[i];
-//		p1 += t;
-//		p1 = Point2f(
-//			cos_a * p1.x - sin_a * p1.y,
-//			sin_a * p1.x + cos_a * p1.y
-//		);
-//
-//
-//		Point2f p2 = polygon[next];
-//		p2 += t;
-//		p2 = Point2f(
-//			cos_a * p2.x - sin_a * p2.y,
-//			sin_a * p2.x + cos_a * p2.y
-//		);
-//
-//		if (p1.y == 0 || (p1.y > 0) == (p2.y > 0)) {
-//			continue;
-//		}
-//
-//		double intX = (0.0f - p1.y) / (p2.y - p1.y) * (p2.x - p1.x);
-//
-//		if (0 < intX && intX < l)
-//			return false;
-//
-//		if(intX < 0)
-//			nrint++;
-//	}
-//
-//
-//	return nrint % 2 == 1;*/
-//
-//	//return pointPolygonTest(polygon, a, false) >= 0 || pointPolygonTest(polygon, b, false) >= 0;
-//
-//	Mat lineFrame = Mat(imageSize, CV_8UC1);
-//	cv::line(lineFrame, a, b, 255, 4);
-//
-//	//Mat contourFrame = Mat(imageSize, CV_8UC1);
-//	//drawContours(contourFrame, polygon, )
-//	return false;
-//}
-//
-//int hough_threshold = 90;
-//
-//static void CannyThreshold2(int, void*)
-//{
-
-//	//std::vector<Point2i> contour_hull;
-//	//convexHull(contours[0], contour_hull);
-//	//contours = std::vector<std::vector<Point2i>>(1, contour_hull);
-//
-//	//imgWithContours = src.clone();
-//	//drawContours(imgWithContours, contours, -1, Vec3b(0, 0, 255), 1, 8);
-//	//rectangle(imgWithContours, bounding_rect, Scalar(0, 255, 0), 1, 8, 0);
-//	//imshow("Contour convex hull", imgWithContours);
-//
-//
-//	int bias = 7;
-//	bounding_rect.x = max(0, bounding_rect.x - bias);
-//	bounding_rect.y = max(0, bounding_rect.y - bias);
-//	bounding_rect.width = min(bounding_rect.width + bias, src.cols - 1 - bounding_rect.x);
-//	bounding_rect.height = min(bounding_rect.height + bias, src.cols - 1 - bounding_rect.y);
-//
-//	//src = src(bounding_rect);
-//	//src_gray = src_gray(bounding_rect);
-//
-//
-//
-
-
-//
-//	Mat reprojected;
-//	std::vector<Point2f> reprojectedCorners;
-//	reprojectImage(src, reprojected, convex_hull, imageSize);
-//
-//	
-//	Mat reprojectedWith4Corners = reprojected.clone();
-//	reprojectPoints(corners, reprojectedCorners, corners, imageSize);
-//	for (const auto& corner : reprojectedCorners) {
-//		circle(reprojectedWith4Corners, corner, 5, Vec3b(0, 0, 255), -1);
-//	}
-//
-//	imshow("Reprojected image with four corners", reprojectedWith4Corners);
-//	imwrite("Reprojected image with four corners.png", reprojectedWith4Corners);
-//
-//
-//
-//	Point2i topLeft, bottomLeft, topRight, bottomRight;
-//	getFourCorners(reprojectedCorners, topLeft, bottomLeft, topRight, bottomRight);
-//
-//	float dx = (topRight.x - topLeft.x) / 8.0f;
-//	float dy = (bottomLeft.y - topLeft.y) / 8.0f;
-//
-//
-//	std::vector<Point2f> allReprCorners;
-//	for (int i = 0; i <= 8; i++) {
-//		for (int j = 0; j <= 8; j++) {
-//			allReprCorners.push_back(topLeft + Point2i(j * dx, i * dy));
-//		}
-//	}
-//
-//	//std::vector<Point2f> allReprCorners;
-//	//std::vector<Point2f> intersectionsf;
-//	//for (const auto& inter : intersections) {
-//	//	intersectionsf.push_back(inter);
-//	//}
-//
-//	//reprojectPoints(intersectionsf, allReprCorners, corners, imageSize);
-//
-//
-//	Mat reprojectedWithAllCorners = reprojected.clone();
-//	for (const auto& corner : allReprCorners) {
-//		circle(reprojectedWithAllCorners, corner, 5, Vec3b(0, 0, 255), -1);
-//	}
-//	imshow("Reprojected image with all corners", reprojectedWithAllCorners);
-//	imwrite("Reprojected image with all corners.png", reprojectedWithAllCorners);
-//
-//}
-
 struct Margin {
 	float top = 0.0f;
 	float bottom = 0.0f;
@@ -632,6 +450,14 @@ std::vector<Point2f> computeLatticePoints(Point2f topLeft, Point2f bottomLeft, P
 	}
 
 	return lattice;
+}
+
+cv::Rect boundingBoxToRect(const std::vector<float>& box, cv::Size imageSize) {
+	int ymin = (int)(box[0] * imageSize.height);
+	int xmin = (int)(box[1] * imageSize.width);
+	int h = (int)(box[2] * imageSize.height) - ymin;
+	int w = (int)(box[3] * imageSize.width) - xmin;
+	return Rect(xmin, ymin, w, h);
 }
 
 void testChessboardDetection() {
@@ -831,7 +657,7 @@ void testPieceRecognition() {
 		std::cout << "\tmean: " << accumulate(pred.scores.begin(), pred.scores.end(), 0.0) / pred.scores.size() << "\n";
 		std::cout << "\tmax: " << *std::max_element(pred.scores.begin(), pred.scores.end()) << "\n";
 
-		print_prediction(pred, threshold_score);
+		print_predictions(pred, threshold_score);
 
 		Size size = img.size();
 		int height = size.height;
@@ -857,17 +683,278 @@ void testPieceRecognition() {
 	}
 }
 
+int findClosest(float x, float width) {
+	float dx = width / 8;
+
+	float q = x / dx;
+	int closest = static_cast<int>(std::roundf(q)) - 1;
+
+	if (closest < 0)
+		closest = 0;
+	if (closest > 7)
+		closest = 7;
+	return closest;
+}
+
+std::vector<std::pair<Piece, Point2i>> recreateChessboard(const std::vector<Piece>& pieces, const std::vector<float>& piece_scores, const std::vector<std::vector<Point2f>>& piece_boxes, const std::vector<Point2f>& corners) {
+	Piece board[8][8];
+	float scores[8][8];
+	bool isOccupied[8][8] = {0};
+
+	Point2f topLeft = corners[0];
+
+	float width = corners[3].x - corners[0].x;
+	float height = corners[1].y - corners[0].y;
+
+	for (int i = 0; i < pieces.size(); i++) {
+		const Piece& piece = pieces[i];
+		const float& score = piece_scores[i];
+		const std::vector<Point2f>& box = piece_boxes[i];
+
+		float maxX = box[0].x;
+		float maxY = box[0].y;
+
+		for (const auto& point : box) {
+			maxX = max(maxX, point.x);
+			maxY = max(maxY, point.y);
+		}
+
+		float x = maxX - topLeft.x;
+		float y = maxY - topLeft.y;
+
+		Point pos = {
+			findClosest(x, width),
+			findClosest(y, height),
+		};
+
+		assert(0 <= pos.x && pos.x < 8);
+		assert(0 <= pos.y && pos.y < 8);
+
+		if (isOccupied[pos.x][pos.y]) {
+			if (scores[pos.x][pos.y] > score) {
+				continue;
+			}
+		}
+
+		isOccupied[pos.x][pos.y] = true;
+		board[pos.x][pos.y] = piece;
+		scores[pos.x][pos.y] = score;
+	}
+
+	std::vector<std::pair<Piece, Point2i>> result;
+
+	for (int i = 0; i < 8; i++) {
+		for (int j = 0; j < 8; j++) {
+			if (isOccupied[i][j]) {
+				result.emplace_back(board[i][j], Point2i(i, j));
+			}
+		}
+	}
+
+	return result;
+}
+
+void testChessboardDetectionAndPieceRecognition() {
+
+	/* Images */
+	Mat img; // source image
+	Mat img_gray; // source image converted to grayscale
+	Mat detected_edges; // binary image containing the edges of the image
+	Mat img_r; // reprojection of the source image
+
+	/* Matrices */
+	Mat homography; // image wrapping
+	Mat perspective; // perspective matrix - point transformation
+
+	/* Variables */
+	std::vector<Point2i> contour; // contour of the chessboard grid
+	std::vector<Point2f> contour_r; // reprojected contour of the chessboard grid
+	std::vector<Vec4i> lines; // lines of the chessboard
+	std::vector<Point2f> intersections; // intersections of the chessboard lines
+	std::vector<Point2f> corners; // corners of the chessboard grid
+	std::vector<Point2f> lattice; // corners of the chessboard grid
+
+	Model model(config.path_model_graph); // piece classifier model
+	Prediction pred; // model prediction
+	int nr_pieces = 0;
+	std::vector<Piece> piece_types; // piece types
+	std::vector<float> piece_scores; // piece scores;
+	std::vector<Rect2f> piece_boxes; // piece boundig box points
+	std::vector<std::vector<Point2f>> piece_boxes_r; // reprojected bounding box points, obtained by the prediction
+	std::vector<std::pair<Piece, Point2i>> chessboard; // pieces and their positions, used for visualization
+
+	/* Constants */
+	const float threshold_score = 0.5f;
+	const Size imageSize = config.imageSize;
+
+	auto path = std::filesystem::current_path();
+	char fname[MAX_PATH];
+	while (openFileDlg(fname))
+	{
+		//setting path back
+		std::filesystem::current_path(path);
+
+		// 1. Read image, resize
+		img = imread(fname, IMREAD_COLOR);
+		resize(img, img, imageSize);
+		show_image("source image", img);
+
+		// 2. Convert source image to grayscale
+		cvtColor(img, img_gray, COLOR_BGR2GRAY);
+		show_image("source image - gray", img_gray);
+
+		// 3. Detect edges
+		detectEdges(img_gray, detected_edges);
+		show_image("detected edges", detected_edges);
+
+		// 4. Contour detection
+		findLargestContour(detected_edges, contour);
+		show_contour("contour", img, contour);
+
+		// 5. Line detection
+		detectLines(detected_edges, lines);
+		std::cout << "Number of detected lines: " << lines.size() << std::endl;
+		show_lines("detected lines", img, lines);
+		show_lines("detected lines - lines only", Mat::zeros(img.size(), img.type()), lines);
+
+		// 5.1 Reduce the number of lines
+		reduceLines(lines);
+		std::cout << "Reduced number of lines: " << lines.size() << std::endl;
+		show_lines("reduced lines", img, lines);
+		show_lines("reduced lines - lines only", Mat::zeros(img.size(), img.type()), lines);
+
+		// 5.2 Discard the lines that are entirely outside of the contour
+		discardExternalLines(contour, lines, img.size());
+		std::cout << "Number of filtered lines: " << lines.size() << std::endl;
+		show_lines("filtered lines", img, lines);
+		show_lines("filtered lines - lines only", Mat::zeros(img.size(), img.type()), lines);
+
+
+		// 6. Finding the intersection points of the chessboard lines
+		intersections = findIntersections(lines, img.size());
+		std::cout << "Number of intersections: " << intersections.size() << std::endl;
+		show_points("intersection points", img, intersections);
+
+		// 7. finding the four corners of the chessboard grid
+		// 7.1 Finding the convex hull
+		convexHull(intersections, corners);
+		std::cout << "Number of elements in the convex hull: " << corners.size() << std::endl;
+		show_points("convex hull", img, corners);
+
+		if (corners.size() < 4) {
+			std::cerr << "the 4 corners were not found";
+			exit(1);
+		}
+
+		// 7.2 Reduce the convex hull to the four corners
+		reduceConvexHull(corners, 4);
+		assert(corners.size() == 4);
+
+		// 7.3 Sort the corners in counterclockwise order. 
+		sortPoints(corners, false);  //The bottom - right corner is at the front.
+
+		// 7.3.1 Rotate the corners in order to put the top-right corner to the front
+		// this way the board will be oriented such that the H1 cell will be in the bottom-right.
+		std::rotate(corners.begin(), corners.begin() + 1, corners.end());
+		show_points("Corners", img, corners);
+		print_points("Corners", corners);
+
+
+		// 8. Reprojection
+		// 8.1 Compute the optimal margin
+		// computes a margin such that all pieces are completely inside the image
+		// purpose:
+		//	- visualization
+		//	- needed if the pieces are cropped separately (not used)
+		Margin margin = calcOptimalMargin(corners, toPoint2fVec(contour), img.size());
+
+		// 8.2 Compute transformation matrices
+		calcProjectionParams(corners, homography, perspective, img.size(), margin);
+
+		// 8.3. Reproject image
+		warpPerspective(img, img_r, homography, img.size());
+		show_image("reprojected", img_r);
+
+		// 8.4 Reproject corner points
+		perspectiveTransform(corners, corners, perspective);
+		show_points("Reprojected image with four corners", img_r, corners);
+
+		// 8.5 Reproject contour points
+		perspectiveTransform(toPoint2fVec(contour), contour_r, perspective);
+		// display bounding rectangle of the contour
+		show_boundingBox("Reprojected image with contour bounding box", img_r, boundingRect(contour_r));
+
+
+		// 9. Compute lattice points
+		lattice = computeLatticePoints(corners[0], corners[1], corners[2], corners[3]);
+		show_points("Reprojected image with all lattice points", img_r, lattice);
+
+
+
+		// 10. Piece detection
+		std::cout << "Prediction started\n";
+		model.predict(img, pred);
+
+		if (pred.num_detections == 0) {
+			std::cerr << "No piece was found\n";
+			exit(1);
+		}
+
+		print_prediction_statistics(pred);
+		print_predictions(pred, threshold_score);
+
+
+		// 11. Filter and transform the prediction
+		piece_types.clear();
+		piece_scores.clear();
+		piece_boxes.clear();
+
+		for (int i = 0; i < pred.num_detections; i++) {
+			if (pred.scores[i] < threshold_score)
+				continue;
+
+			nr_pieces++;
+			piece_boxes.push_back(boundingBoxToRect(pred.boxes[i], imageSize));
+			piece_scores.push_back(pred.scores[i]);
+			piece_types.push_back(classToPiece(pred.classes[i]));
+		}
+
+
+		// 11. Reproject piece bounding boxes
+		piece_boxes_r.clear();
+		for (const auto& box : piece_boxes) {
+			std::vector<Point2f> bbox_r;
+			perspectiveTransformRectangle(box, bbox_r, perspective);
+			piece_boxes_r.push_back(bbox_r); 
+		}
+		show_boundingBoxes("Predicted piece bounding boxes", img_r, piece_boxes_r);
+
+
+		// 12. Recreate chessboard
+		chessboard = recreateChessboard(piece_types, piece_scores, piece_boxes_r, corners);
+
+		// 13. Visualize board
+		show_image("Chessboard", getDigitalChessboard(chessboard));
+
+		waitKey();
+	}
+}
+
+
 int main()
 {
-	Menu menu({
-		{"Corner detection", testCornerDetection},
-		{"Print the paths of the calibration images", printCalibrationImagePaths},
-		{"Camera calibration", testCameraCalibration},
-		{"Chessboard detection", testChessboardDetection},
-		{"Chessboard visualization", testVisualizeChessboard},
-		{"Piece recognition", testPieceRecognition},
-		});
+	//Menu menu({
+	//	{"Corner detection", testCornerDetection},
+	//	{"Print the paths of the calibration images", printCalibrationImagePaths},
+	//	{"Camera calibration", testCameraCalibration},
+	//	{"Chessboard detection", testChessboardDetection},
+	//	{"Chessboard visualization", testVisualizeChessboard},
+	//	{"Piece recognition", testPieceRecognition},
+	//	{"Chessboard detection and piece recognition", testChessboardDetectionAndPieceRecognition},
+	//	});
 
-	menu.show(std::cin, std::cout);
+	//menu.show(std::cin, std::cout);
+
+	testChessboardDetectionAndPieceRecognition();
 	return 0;
 }
