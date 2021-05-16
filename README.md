@@ -17,9 +17,9 @@ Project for the image processing course.
 
 ![Input image](doc/Figures/source%20image.png)
 
-### Image after perspective projection and piece classification
+### Image after perspective correction and piece classification
 
-![Image after perspective projection and piece classification](doc/Figures/Predicted%20piece%20bounding%20boxes.png)
+![Image after perspective correction and piece classification](doc/Figures/Predicted%20piece%20bounding%20boxes.png)
 
 ### Visualization of the state of the board
 
