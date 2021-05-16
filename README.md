@@ -15,15 +15,15 @@ Project for the image processing course.
 
 ### Input image
 
-![input image](doc/Figures/source image.png)
+![Input image](doc/Figures/source%20image.png)
 
 ### Image after perspective projection and piece classification
 
-![input image](doc/Figures/Predicted piece bounding boxes.png)
+![Image after perspective projection and piece classification](doc/Figures/Predicted%20piece%20bounding%20boxes.png)
 
 ### Visualization of the state of the board
 
-![input image](doc/Figures/Chessboard.png)
+![Visualization of the state of the board](doc/Figures/Chessboard.png)
 
 
 ## Acknowledgements
